@@ -13,16 +13,9 @@ import com.cecosesola.coop.workers.SyncWorker
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // enableEdgeToEdge debe llamarse ANTES de super.onCreate y de setContent.
-        // Sin esto en Android 15+ el sistema fuerza edge-to-edge de todas formas
-        // pero sin que la app gestione los insets, causando contenido tapado por
-        // la barra de estado o la barra de navegación.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // SyncWorker.schedule solo necesita correr una vez, no en cada rotación.
-        // savedInstanceState == null significa que es la primera creación de la Activity,
-        // no una reconfiguración (rotación, cambio de idioma, etc.).
         if (savedInstanceState == null) {
             SyncWorker.schedule(this)
         }
@@ -31,12 +24,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CecosesolaTheme {
-                // ViewModelProvider.Factory con lambda — más conciso y equivalente
                 val viewModel: MainViewModel = viewModel(
-                    factory = androidx.lifecycle.ViewModelProvider.Factory.from(
-                        // initializer disponible desde lifecycle-viewmodel 2.6+
-                        androidx.lifecycle.viewmodel.initializer { MainViewModel(repository) }
-                    )
+                    factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                            return MainViewModel(repository) as T
+                        }
+                    }
                 )
                 MainScreen(viewModel = viewModel)
             }
