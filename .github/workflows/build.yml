@@ -68,4 +68,3 @@ jobs:
           path: ${{env.APK_FILE_NAME}}.apk
           overwrite: true
           if-no-files-found: error
-EOF
