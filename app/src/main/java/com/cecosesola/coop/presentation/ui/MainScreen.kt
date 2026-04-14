@@ -33,6 +33,8 @@ fun MainScreen(viewModel: MainViewModel) {
     val soloFavoritos       by viewModel.soloFavoritos.collectAsState()
     val busquedasRecientes  by viewModel.busquedasRecientes.collectAsState()
     val ultimaActualizacion by viewModel.ultimaActualizacion.collectAsState()
+    val hayMasProductos     by viewModel.hayMasProductos.collectAsState()
+    val productosRestantes  by viewModel.productosRestantes.collectAsState()
     val snackbarHostState   = remember { SnackbarHostState() }
     val listState           = rememberLazyListState()
 
@@ -144,6 +146,27 @@ fun MainScreen(viewModel: MainViewModel) {
 
             if (productos.isEmpty() && !isLoading) {
                 item { EmptyState(soloFavoritos = soloFavoritos, hasQuery = searchQuery.isNotBlank()) }
+            }
+
+            // Botón "Ver más"
+            if (hayMasProductos && !isLoading) {
+                item {
+                    Button(
+                        onClick = { viewModel.cargarMas() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = MaterialTheme.shapes.large,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Text(
+                            "Ver más ($productosRestantes restantes)",
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
             }
         }
     }
