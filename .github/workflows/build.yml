@@ -1,4 +1,4 @@
-name: Build
+name: Build Android APK
 
 permissions:
   contents: read
@@ -20,7 +20,6 @@ concurrency:
 env:
   APP_NAME: Cecosesola
   APK_FILE_NAME: Cecosesola
-  STORE_FILE: apps.keystore
 
 jobs:
   build-android-apk:
@@ -40,18 +39,24 @@ jobs:
       - name: Change wrapper permissions
         run: chmod +x ./gradlew
 
-      - name: Set up Keystore
+      - name: Generate Keystore
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > ${{ env.STORE_FILE }}
-        env:
-          KEYSTORE_BASE64: ${{ secrets.SIGNING_KEY }}
+          keytool -genkey -v \
+            -keystore apps.keystore \
+            -alias apps \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Apps, OU=Dev, O=Personal, L=City, S=State, C=VE"
 
-      - name: Create keystore.properties file
+      - name: Create keystore.properties
         run: |
-          echo "storeFile=${{ env.STORE_FILE }}" > keystore.properties
-          echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" >> keystore.properties
-          echo "keyAlias=${{ secrets.ALIAS }}" >> keystore.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+          echo "storeFile=apps.keystore" > keystore.properties
+          echo "storePassword=android" >> keystore.properties
+          echo "keyAlias=apps" >> keystore.properties
+          echo "keyPassword=android" >> keystore.properties
 
       - name: Build Release APK
         run: ./gradlew assembleRelease
