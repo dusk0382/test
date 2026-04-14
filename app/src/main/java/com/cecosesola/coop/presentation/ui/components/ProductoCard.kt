@@ -30,13 +30,6 @@ import com.cecosesola.coop.domain.model.Producto
 import com.cecosesola.coop.presentation.ui.theme.Surf
 import kotlinx.coroutines.delay
 
-/**
- * Tarjeta de producto siguiendo M3 Filled Card.
- *
- * Cuando [isFavorito] es true usa secondaryContainer para el tonal color,
- * de lo contrario usa surfaceContainerLow (surface nivel 1).
- * Sin acentos de borde, sin barras laterales — la elevación tonal lo hace todo.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ProductoCard(
@@ -48,17 +41,14 @@ fun ProductoCard(
     var visible by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(false) }
 
-    // Animación de entrada escalonada
     LaunchedEffect(Unit) { delay(16); visible = true }
 
-    // Feedback táctil de escala
     val scale by animateFloatAsState(
         targetValue   = if (pressed) 0.98f else 1f,
         animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessHigh),
         label         = "scale"
     )
 
-    // Color de fondo según estado favorito
     val bgColor by animateColorAsState(
         targetValue   = if (isFavorito)
             MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
@@ -91,13 +81,11 @@ fun ProductoCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Imagen
                 ProductImage(
                     url    = producto.imagenUrl,
                     nombre = producto.nombre
                 )
 
-                // Texto
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         producto.nombre,
@@ -118,7 +106,6 @@ fun ProductoCard(
                     PriceRow(precio = producto.precio)
                 }
 
-                // Botón favorito
                 FavButton(
                     isFavorito = isFavorito,
                     onClick    = onFavoritoClick
@@ -127,8 +114,6 @@ fun ProductoCard(
         }
     }
 }
-
-// ── Imagen ────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun ProductImage(url: String?, nombre: String) {
@@ -155,11 +140,9 @@ private fun ProductImage(url: String?, nombre: String) {
     }
 }
 
-// ── Precio ────────────────────────────────────────────────────────────────────
-
 @Composable
 private fun PriceRow(precio: Double) {
-    Row(verticalAlignment = Alignment.Baseline, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
             "Bs.",
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Normal),
@@ -175,8 +158,6 @@ private fun PriceRow(precio: Double) {
         )
     }
 }
-
-// ── Botón favorito ────────────────────────────────────────────────────────────
 
 @Composable
 private fun FavButton(isFavorito: Boolean, onClick: () -> Unit) {
