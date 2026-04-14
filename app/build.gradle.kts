@@ -17,6 +17,15 @@ android {
         resourceConfigurations.addAll(listOf("en", "es"))
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("apps.keystore")
+            storePassword = "android"
+            keyAlias = "apps"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -37,6 +46,7 @@ android {
                 "proguard-rules.pro"
             )
             ndk { debugSymbolLevel = "none" }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     
@@ -96,21 +106,5 @@ kapt {
     arguments {
         arg("room.schemaLocation", "$projectDir/schemas")
         arg("room.incremental", "true")
-    }
-}
-
-android {
-    signingConfigs {
-        create("release") {
-            storeFile = file(System.getenv("HOME") + "/apps.keystore")
-            storePassword = "android"
-            keyAlias = "apps"
-            keyPassword = "android"
-        }
-    }
-    buildTypes {
-        getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
-        }
     }
 }
