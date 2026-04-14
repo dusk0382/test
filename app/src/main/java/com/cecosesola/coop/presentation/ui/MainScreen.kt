@@ -26,7 +26,6 @@ import com.cecosesola.coop.presentation.ui.components.ProductoCard
 import com.cecosesola.coop.presentation.ui.components.SearchBar
 import com.cecosesola.coop.presentation.ui.components.SkeletonProductCard
 import com.cecosesola.coop.presentation.ui.theme.Surf
-import com.cecosesola.coop.presentation.utils.DiasUtilesHelper
 import com.cecosesola.coop.presentation.viewmodel.MainViewModel
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
@@ -75,7 +74,7 @@ fun MainScreen(viewModel: MainViewModel) {
         },
         floatingActionButton = {
             AnimatedVisibility(
-                visible = DiasUtilesHelper.esDiaDeOperacion() && !isLoading && productos.isNotEmpty(),
+                visible = !isLoading && productos.isNotEmpty(),
                 enter   = scaleIn(spring(Spring.DampingRatioMediumBouncy)) + fadeIn(),
                 exit    = scaleOut() + fadeOut()
             ) {
@@ -109,7 +108,6 @@ fun MainScreen(viewModel: MainViewModel) {
                 )
             }
 
-            // Separador con conteo
             item {
                 Row(
                     modifier = Modifier
@@ -143,7 +141,6 @@ fun MainScreen(viewModel: MainViewModel) {
                 items(7) {
                     SkeletonProductCard(
                         modifier = Modifier
-                            .animateItem()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
@@ -154,7 +151,6 @@ fun MainScreen(viewModel: MainViewModel) {
                         isFavorito      = viewModel.isFavorito(producto.id),
                         onFavoritoClick = { viewModel.toggleFavorito(producto.id) },
                         modifier        = Modifier
-                            .animateItem()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
@@ -168,8 +164,6 @@ fun MainScreen(viewModel: MainViewModel) {
         }
     }
 }
-
-// ── Top App Bar compacta M3 ───────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -200,7 +194,6 @@ private fun CecoTopBar(
             }
         },
         actions = {
-            // Botón favoritos con estado visual claro
             IconButton(onClick = onToggleFavoritos) {
                 BadgedBox(
                     badge = {
@@ -228,8 +221,6 @@ private fun CecoTopBar(
         )
     )
 }
-
-// ── Empty state ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun EmptyState(soloFavoritos: Boolean, hasQuery: Boolean) {
