@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(FlowPreview::class)
 class MainViewModel(private val repository: PreciosRepository) : ViewModel() {
@@ -27,41 +26,25 @@ class MainViewModel(private val repository: PreciosRepository) : ViewModel() {
     private val _soloFavoritos = MutableStateFlow(false)
     val soloFavoritos: StateFlow<Boolean> = _soloFavoritos.asStateFlow()
 
-    /**
-     * Set<String> en lugar de List<String> → isFavorito() pasa de O(n) a O(1).
-     * Eagerly porque los favoritos se necesitan inmediatamente al componer cada card.
-     */
+    // Paginación
+    private val PAGE_SIZE = 30
+    private val _currentPage = MutableStateFlow(0)
+
     private val favoritosIds: StateFlow<Set<String>> = repository.getFavoritosFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     val busquedasRecientes: StateFlow<List<String>> = repository.getBusquedasRecientesFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /**
-     * Pipeline de filtrado optimizado:
-     *
-     * 1. debounce(150ms) en la query: si el usuario escribe rápido, no se filtra
-     *    en cada keystroke — solo cuando deja de escribir 150ms.
-     *
-     * 2. El combine no incluye favoritosIds directamente, porque cambiar un favorito
-     *    NO debe re-filtrar la lista de productos (el filtrado solo es por texto y
-     *    por soloFavoritos flag). Los favoritos se aplican con el Set que ya está
-     *    en memoria, sin re-disparar todo el pipeline.
-     *
-     * 3. distinctUntilChanged() evita recomposiciones cuando el resultado es igual
-     *    al anterior (ej. añadir un carácter que no cambia los resultados).
-     *
-     * 4. flowOn(IO) mueve el filtrado fuera del hilo principal.
-     */
-    val productos: StateFlow<List<Producto>> = combine(
+    // Todos los productos filtrados
+    private val productosFiltrados: StateFlow<List<Producto>> = combine(
         repository.getProductosFlow(),
         _searchQuery.debounce(150),
         _soloFavoritos
     ) { productos, query, soloFavs ->
-        // El filtrado pesado ocurre en IO (via flowOn más abajo)
         var result = productos
         if (soloFavs) {
-            val favs = favoritosIds.value   // lectura O(1) del StateFlow ya calculado
+            val favs = favoritosIds.value
             result = result.filter { favs.contains(it.id) }
         }
         if (query.isNotBlank()) {
@@ -74,8 +57,30 @@ class MainViewModel(private val repository: PreciosRepository) : ViewModel() {
         result
     }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)   // filtrado en hilo worker, no en Main
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Productos paginados (los que se muestran)
+    val productos: StateFlow<List<Producto>> = combine(
+        productosFiltrados,
+        _currentPage
+    ) { todos, page ->
+        todos.take((page + 1) * PAGE_SIZE)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val hayMasProductos: StateFlow<Boolean> = combine(
+        productosFiltrados,
+        productos
+    ) { todos, paginados ->
+        paginados.size < todos.size
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val productosRestantes: StateFlow<Int> = combine(
+        productosFiltrados,
+        productos
+    ) { todos, paginados ->
+        todos.size - paginados.size
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val ultimaActualizacion: StateFlow<Long?> = flow {
         emit(repository.getUltimaSincronizacion())
@@ -87,12 +92,12 @@ class MainViewModel(private val repository: PreciosRepository) : ViewModel() {
 
     init {
         Log.d("Cecosesola", "🔵 MainViewModel INIT")
-        refrescar(mostrarLoading = false)   // silencioso al inicio — Room ya tiene datos
+        refrescar(mostrarLoading = false)
     }
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
-        // No lanzamos corrutina aquí — el debounce en el Flow se encarga del throttle
+        resetPaginacion()
     }
 
     fun onSearchSubmit(query: String) {
@@ -103,6 +108,7 @@ class MainViewModel(private val repository: PreciosRepository) : ViewModel() {
 
     fun toggleSoloFavoritos() {
         _soloFavoritos.value = !_soloFavoritos.value
+        resetPaginacion()
     }
 
     fun toggleFavorito(productoId: String) {
@@ -111,14 +117,20 @@ class MainViewModel(private val repository: PreciosRepository) : ViewModel() {
         }
     }
 
-    /**
-     * O(1) — el Set ya está computado en favoritosIds.
-     * Seguro llamarlo desde la UI en cada recomposición.
-     */
     fun isFavorito(productoId: String): Boolean = favoritosIds.value.contains(productoId)
 
     fun eliminarBusqueda(query: String) {
         viewModelScope.launch { repository.eliminarBusqueda(query) }
+    }
+
+    fun cargarMas() {
+        if (hayMasProductos.value) {
+            _currentPage.update { it + 1 }
+        }
+    }
+
+    private fun resetPaginacion() {
+        _currentPage.value = 0
     }
 
     fun refrescar(mostrarLoading: Boolean = true) {
@@ -130,6 +142,7 @@ class MainViewModel(private val repository: PreciosRepository) : ViewModel() {
                 _errorMessage.emit("No se pudieron actualizar los precios")
             }
             if (mostrarLoading) _isLoading.value = false
+            resetPaginacion()
         }
     }
 }
