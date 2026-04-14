@@ -14,11 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * Search bar usando el componente SearchBar de M3.
- * Cuando está activa y sin texto muestra historial de búsquedas.
- * Sin chips de filtro — los favoritos se manejan desde el top bar.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchBar(
@@ -31,29 +26,25 @@ fun SearchBar(
 ) {
     var active by remember { mutableStateOf(false) }
 
-    // Sincronizar estado activo cuando se limpia la query externamente
-    LaunchedEffect(query) {
-        if (query.isBlank() && !active) active = false
-    }
+    // ELIMINADO: LaunchedEffect(query) que tenía condición siempre falsa.
+    // "if (query.isBlank() && !active) active = false" nunca cambiaba nada
+    // porque ya era false. Solo ejecutaba work innecesario en cada cambio de query.
 
     SearchBar(
-        query         = query,
-        onQueryChange = onQueryChange,
-        onSearch      = { q ->
-            onSearchSubmit(q)
-            active = false
-        },
-        active        = active,
+        query          = query,
+        onQueryChange  = onQueryChange,
+        onSearch       = { q -> onSearchSubmit(q); active = false },
+        active         = active,
         onActiveChange = { active = it },
-        modifier      = modifier.fillMaxWidth(),
-        placeholder   = {
+        modifier       = modifier.fillMaxWidth(),
+        placeholder    = {
             Text(
                 "Buscar producto…",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         },
-        leadingIcon   = {
+        leadingIcon = {
             Icon(
                 Icons.Default.Search,
                 contentDescription = null,
@@ -61,105 +52,67 @@ fun SearchBar(
                        else MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
-        trailingIcon  = {
+        trailingIcon = {
             AnimatedVisibility(
                 visible = query.isNotEmpty(),
                 enter   = scaleIn(tween(120)) + fadeIn(tween(120)),
                 exit    = scaleOut(tween(100)) + fadeOut(tween(100))
             ) {
-                IconButton(onClick = {
-                    onQueryChange("")
-                }) {
-                    Icon(
-                        Icons.Default.Clear,
-                        contentDescription = "Limpiar búsqueda",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Default.Clear, "Limpiar búsqueda",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         },
         colors = SearchBarDefaults.colors(
-            containerColor     = MaterialTheme.colorScheme.surfaceVariant,
-            dividerColor       = MaterialTheme.colorScheme.outlineVariant
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            dividerColor   = MaterialTheme.colorScheme.outlineVariant
         ),
-        tonalElevation = 0.dp,
+        tonalElevation  = 0.dp,
         shadowElevation = 0.dp
     ) {
-        // Historial de búsquedas dentro del panel expandido
         if (query.isEmpty() && busquedasRecientes.isNotEmpty()) {
             Spacer(Modifier.height(4.dp))
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.History,
-                    null,
-                    tint     = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp)
-                )
+                Icon(Icons.Default.History, null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    "Recientes",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Recientes", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
             busquedasRecientes.forEach { busqueda ->
                 ListItem(
-                    headlineContent = {
-                        Text(busqueda, style = MaterialTheme.typography.bodyMedium)
-                    },
-                    leadingContent = {
-                        Icon(
-                            Icons.Default.History,
-                            null,
-                            tint     = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        )
+                    headlineContent = { Text(busqueda, style = MaterialTheme.typography.bodyMedium) },
+                    leadingContent  = {
+                        Icon(Icons.Default.History, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp))
                     },
                     trailingContent = {
-                        IconButton(
-                            onClick  = { onEliminarBusqueda(busqueda) },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Clear,
-                                null,
-                                tint     = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                modifier = Modifier.size(16.dp)
-                            )
+                        IconButton(onClick = { onEliminarBusqueda(busqueda) },
+                            modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Clear, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(16.dp))
                         }
                     },
                     modifier = Modifier.clickable {
-                        onQueryChange(busqueda)
-                        onSearchSubmit(busqueda)
-                        active = false
+                        onQueryChange(busqueda); onSearchSubmit(busqueda); active = false
                     },
-                    colors = ListItemDefaults.colors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
                 )
             }
             Spacer(Modifier.height(8.dp))
         }
-
-        // Resultados mientras escribe
         if (query.isNotBlank()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "Presiona Enter para buscar «$query»",
+            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                Text("Presiona Enter para buscar «$query»",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
             }
         }
     }

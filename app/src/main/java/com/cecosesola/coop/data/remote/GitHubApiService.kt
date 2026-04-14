@@ -1,29 +1,38 @@
 package com.cecosesola.coop.data.remote
 
-import com.google.gson.annotations.SerializedName
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
 import okhttp3.Cache
 import okhttp3.CacheControl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.GET
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+/**
+ * @JsonClass(generateAdapter = true) hace que Moshi genere el adaptador JSON
+ * en tiempo de compilación — sin reflexión en runtime.
+ * En ARM Cortex-A53 (Helio A22) esto es significativamente más rápido que Gson.
+ */
+@JsonClass(generateAdapter = true)
 data class PreciosResponse(
-    @SerializedName("productos") val productos: List<ProductoRemoto>,
-    @SerializedName("fecha_actualizacion") val fechaActualizacion: String
+    @Json(name = "productos") val productos: List<ProductoRemoto>,
+    @Json(name = "fecha_actualizacion") val fechaActualizacion: String
 )
 
+@JsonClass(generateAdapter = true)
 data class ProductoRemoto(
-    @SerializedName("id") val id: String,
-    @SerializedName("nombre") val nombre: String,
-    @SerializedName("precio") val precio: Double,
-    @SerializedName("categoria") val categoria: String?,
-    @SerializedName("imagen") val imagen: String?,
-    @SerializedName("presentacion") val presentacion: String = ""
+    @Json(name = "id") val id: String,
+    @Json(name = "nombre") val nombre: String,
+    @Json(name = "precio") val precio: Double,
+    @Json(name = "categoria") val categoria: String?,
+    @Json(name = "imagen") val imagen: String?,
+    @Json(name = "presentacion") val presentacion: String = ""
 )
 
 interface GitHubApiService {
@@ -33,24 +42,17 @@ interface GitHubApiService {
     companion object {
         private const val BASE_URL =
             "https://raw.githubusercontent.com/dusk0382/cecosesola-data/main/"
-
-        // Caché de 1 MB — el JSON de precios es pequeño, esto evita re-descargar
-        // si el servidor responde con los mismos datos (ETag / Last-Modified).
         private const val CACHE_SIZE = 1L * 1024 * 1024
 
         fun create(cacheDir: File): GitHubApiService {
             val cache = Cache(File(cacheDir, "http_cache"), CACHE_SIZE)
 
-            // Interceptor que fuerza revalidación en cada llamada explícita pero
-            // permite usar la caché cuando el servidor confirma "304 Not Modified".
-            // Esto ahorra parsear y guardar en Room si nada cambió.
             val revalidateInterceptor = Interceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .cacheControl(CacheControl.Builder()
-                        .maxAge(0, TimeUnit.SECONDS)   // siempre revalidar
-                        .build())
-                    .build()
-                chain.proceed(request)
+                chain.proceed(
+                    chain.request().newBuilder()
+                        .cacheControl(CacheControl.Builder().maxAge(0, TimeUnit.SECONDS).build())
+                        .build()
+                )
             }
 
             val clientBuilder = OkHttpClient.Builder()
@@ -58,20 +60,19 @@ interface GitHubApiService {
                 .addNetworkInterceptor(revalidateInterceptor)
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
-                // Sin SSL personalizado — raw.githubusercontent.com tiene certificado
-                // válido. El cliente de sistema ya lo maneja correctamente.
 
-            // Logging solo en builds de depuración para no penalizar release
             if (BuildConfig.DEBUG) {
                 clientBuilder.addInterceptor(
                     HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
                 )
             }
 
+            val moshi = Moshi.Builder().build()
+
             return Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .client(clientBuilder.build())
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(MoshiConverterFactory.create(moshi))
                 .build()
                 .create(GitHubApiService::class.java)
         }

@@ -1,75 +1,47 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# Retrofit & OkHttp
+# Reglas mínimas y quirúrgicas.
+#
+# Coil, OkHttp, Compose y Kotlin Coroutines incluyen sus propias consumer rules
+# en el artefacto — R8 las aplica automáticamente sin que las repitas aquí.
+# Las reglas "-keep class X.** { *; }" amplias que estaban antes impedían que
+# R8 eliminara código no usado de esas librerías.
 # ──────────────────────────────────────────────────────────────────────────────
--keepattributes Signature
--keepattributes Exceptions
--keepattributes *Annotation*
--keepattributes InnerClasses
--keepattributes EnclosingMethod
--keep class retrofit2.** { *; }
--keep class okhttp3.** { *; }
--keep interface retrofit2.** { *; }
--dontwarn retrofit2.**
--dontwarn okhttp3.**
--dontwarn okio.**
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Gson
-# ──────────────────────────────────────────────────────────────────────────────
--keep class com.google.gson.** { *; }
--keep class com.cecosesola.coop.data.remote.** { *; }
--keep class com.cecosesola.coop.domain.model.** { *; }
+# Retrofit — necesita mantener tipos de retorno genéricos para la reflexión de interfaces
+-keepattributes Signature, Exceptions, *Annotation*, InnerClasses, EnclosingMethod
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+
+# Moshi codegen — los adaptadores se generan en compile-time, no necesitan keep amplio
+-keep @com.squareup.moshi.JsonClass class * { *; }
 -keepclassmembers class * {
-    @com.google.gson.annotations.SerializedName <fields>;
+    @com.squareup.moshi.Json <fields>;
 }
 
-# ──────────────────────────────────────────────────────────────────────────────
+# Modelos de datos (accedidos por nombre en serialización y Room)
+-keep class com.cecosesola.coop.data.remote.** { *; }
+-keep class com.cecosesola.coop.domain.model.** { *; }
+
 # Room
-# ──────────────────────────────────────────────────────────────────────────────
--keep class * extends androidx.room.RoomDatabase
--keep @androidx.room.Entity class *
+-keep @androidx.room.Entity class * { *; }
+-keep class * extends androidx.room.RoomDatabase { *; }
 -keep class com.cecosesola.coop.data.local.** { *; }
 -dontwarn androidx.room.paging.**
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Coil
-# ──────────────────────────────────────────────────────────────────────────────
--keep class coil.** { *; }
--dontwarn coil.**
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Coroutines
-# ──────────────────────────────────────────────────────────────────────────────
--keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
--keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
--keepclassmembernames class kotlinx.** {
-    volatile <fields>;
-}
-
-# ──────────────────────────────────────────────────────────────────────────────
 # WorkManager
-# ──────────────────────────────────────────────────────────────────────────────
--keep class androidx.work.** { *; }
 -keep class com.cecosesola.coop.workers.** { *; }
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Timber
-# ──────────────────────────────────────────────────────────────────────────────
--dontwarn org.jetbrains.annotations.**
--keep class timber.log.** { *; }
+# Coroutines — campos volátiles internos usados por reflection
+-keepclassmembernames class kotlinx.** { volatile <fields>; }
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Compose
-# ──────────────────────────────────────────────────────────────────────────────
--keep class androidx.compose.** { *; }
--dontwarn androidx.compose.**
+# Eliminar logs de Timber en release (incluso la construcción del string)
+-assumenosideeffects class timber.log.Timber {
+    public static *** v(...);
+    public static *** d(...);
+    public static *** i(...);
+}
 
-# ──────────────────────────────────────────────────────────────────────────────
-# App específicas
-# ──────────────────────────────────────────────────────────────────────────────
--keep class com.cecosesola.coop.MainActivity { *; }
--keep class com.cecosesola.coop.CecosesolaApp { *; }
-
-# Mantener nombres de clase para debugging
--keepattributes SourceFile,LineNumberTable
+# Mantener info de línea para stack traces legibles
+-keepattributes SourceFile, LineNumberTable
 -renamesourcefileattribute SourceFile
