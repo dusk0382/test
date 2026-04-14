@@ -129,7 +129,7 @@ fun MainScreen(viewModel: MainViewModel) {
 
             if (isLoading && productos.isEmpty()) {
                 items(7) {
-                    SkeletonProductCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                    SkeletonProductCard(modifier = Modifier.padding(vertical = 4.dp))
                 }
             } else {
                 items(productos, key = { it.id }) { producto ->
@@ -137,7 +137,7 @@ fun MainScreen(viewModel: MainViewModel) {
                         producto        = producto,
                         isFavorito      = viewModel.isFavorito(producto.id),
                         onFavoritoClick = { viewModel.toggleFavorito(producto.id) },
-                        modifier        = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        modifier        = Modifier.padding(vertical = 4.dp)
                     )
                 }
             }
