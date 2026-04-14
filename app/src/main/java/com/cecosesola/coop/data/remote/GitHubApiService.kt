@@ -1,5 +1,6 @@
 package com.cecosesola.coop.data.remote
 
+import com.cecosesola.coop.BuildConfig
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -14,11 +15,6 @@ import retrofit2.http.GET
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/**
- * @JsonClass(generateAdapter = true) hace que Moshi genere el adaptador JSON
- * en tiempo de compilación — sin reflexión en runtime.
- * En ARM Cortex-A53 (Helio A22) esto es significativamente más rápido que Gson.
- */
 @JsonClass(generateAdapter = true)
 data class PreciosResponse(
     @Json(name = "productos") val productos: List<ProductoRemoto>,
@@ -40,13 +36,11 @@ interface GitHubApiService {
     suspend fun getPrecios(): PreciosResponse
 
     companion object {
-        private const val BASE_URL =
-            "https://raw.githubusercontent.com/dusk0382/cecosesola-data/main/"
+        private const val BASE_URL = "https://raw.githubusercontent.com/dusk0382/cecosesola-data/main/"
         private const val CACHE_SIZE = 1L * 1024 * 1024
 
         fun create(cacheDir: File): GitHubApiService {
             val cache = Cache(File(cacheDir, "http_cache"), CACHE_SIZE)
-
             val revalidateInterceptor = Interceptor { chain ->
                 chain.proceed(
                     chain.request().newBuilder()
@@ -54,21 +48,17 @@ interface GitHubApiService {
                         .build()
                 )
             }
-
             val clientBuilder = OkHttpClient.Builder()
                 .cache(cache)
                 .addNetworkInterceptor(revalidateInterceptor)
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
-
             if (BuildConfig.DEBUG) {
                 clientBuilder.addInterceptor(
                     HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
                 )
             }
-
             val moshi = Moshi.Builder().build()
-
             return Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .client(clientBuilder.build())

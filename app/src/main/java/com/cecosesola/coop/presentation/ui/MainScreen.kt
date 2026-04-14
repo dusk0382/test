@@ -40,7 +40,6 @@ fun MainScreen(viewModel: MainViewModel) {
         listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 4
     }}
 
-    // Color del TopBar precalculado — evita recrear el objeto Color en cada recomposición
     val topBarColor by animateColorAsState(
         targetValue = if (scrolled) MaterialTheme.colorScheme.surfaceVariant
                       else MaterialTheme.colorScheme.surface,
@@ -158,7 +157,6 @@ private fun CecoTopBar(
     ultimaActualizacion: Long?,
     containerColor: androidx.compose.ui.graphics.Color
 ) {
-    // Formateador de hora como remember — no se recrea si el epoch no cambia
     val hora = remember(ultimaActualizacion) {
         ultimaActualizacion?.let {
             SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(it))
@@ -197,9 +195,6 @@ private fun CecoTopBar(
 
 @Composable
 private fun EmptyState(soloFavoritos: Boolean, hasQuery: Boolean) {
-    // CORREGIDO: rememberInfiniteTransition solo si realmente se ve el EmptyState.
-    // Al estar dentro del LazyColumn como item condicional, solo se compone cuando
-    // la lista está vacía — no hay coste cuando hay productos.
     val pulse = rememberInfiniteTransition(label = "pulse")
     val alpha by pulse.animateFloat(
         initialValue  = 0.6f,
@@ -222,8 +217,8 @@ private fun EmptyState(soloFavoritos: Boolean, hasQuery: Boolean) {
                 Icon(
                     imageVector = when {
                         soloFavoritos && !hasQuery -> Icons.Outlined.FavoriteBorder
-                        hasQuery                  -> Icons.Outlined.SearchOff
-                        else                      -> Icons.Outlined.Inventory2
+                        hasQuery                  -> Icons.Default.Search
+                        else                      -> Icons.Default.Info
                     },
                     contentDescription = null,
                     modifier = Modifier.size(36.dp),

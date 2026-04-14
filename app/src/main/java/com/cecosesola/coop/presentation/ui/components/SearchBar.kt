@@ -6,7 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,10 +25,6 @@ fun SearchBar(
     modifier: Modifier = Modifier
 ) {
     var active by remember { mutableStateOf(false) }
-
-    // ELIMINADO: LaunchedEffect(query) que tenía condición siempre falsa.
-    // "if (query.isBlank() && !active) active = false" nunca cambiaba nada
-    // porque ya era false. Solo ejecutaba work innecesario en cada cambio de query.
 
     SearchBar(
         query          = query,
@@ -77,7 +73,7 @@ fun SearchBar(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.History, null,
+                Icon(Icons.Default.Schedule, null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
@@ -88,7 +84,7 @@ fun SearchBar(
                 ListItem(
                     headlineContent = { Text(busqueda, style = MaterialTheme.typography.bodyMedium) },
                     leadingContent  = {
-                        Icon(Icons.Default.History, null,
+                        Icon(Icons.Default.Schedule, null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(18.dp))
                     },
