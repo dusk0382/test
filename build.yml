@@ -1,0 +1,72 @@
+cat > .github/workflows/build.yml << 'EOF'
+name: Build Android APK
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - ".gitignore"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MAIN_PROJECT_MODULE: app
+  APP_NAME: Cecosesola
+  APK_FILE_NAME: Cecosesola
+  ORIGINAL_APK_PATH: /build/outputs/apk/release/app-release.apk
+  STORE_FILE: apps.keystore
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: 17
+          cache: "gradle"
+
+      - name: Change wrapper permissions
+        run: chmod +x ./gradlew
+
+      - name: Set up Keystore
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > ${{env.MAIN_PROJECT_MODULE}}/${{ env.STORE_FILE }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SIGNING_KEY }}
+
+      - name: Create keystore.properties file
+        run: |
+          echo "storeFile=${{ env.STORE_FILE }}" > keystore.properties
+          echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" >> keystore.properties
+          echo "keyAlias=${{ secrets.ALIAS }}" >> keystore.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Rename APK file
+        run: mv ${{env.MAIN_PROJECT_MODULE}}${{env.ORIGINAL_APK_PATH}} ${{env.APK_FILE_NAME}}.apk
+
+      - name: Upload APK Release
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build
+          path: ${{env.APK_FILE_NAME}}.apk
+          overwrite: true
+          if-no-files-found: error
+EOF
