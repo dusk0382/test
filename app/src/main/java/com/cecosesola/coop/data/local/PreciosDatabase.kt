@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [ProductoEntity::class, MetadataEntity::class, FavoritoEntity::class, BusquedaEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class PreciosDatabase : RoomDatabase() {
