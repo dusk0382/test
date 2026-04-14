@@ -1,0 +1,6 @@
+-keep class retrofit2.** { *; }
+-keep class com.google.gson.** { *; }
+-keep class androidx.room.** { *; }
+-keep class coil.** { *; }
+-keep class com.cecosesola.coop.data.local.** { *; }
+-keep class com.cecosesola.coop.domain.model.** { *; }
