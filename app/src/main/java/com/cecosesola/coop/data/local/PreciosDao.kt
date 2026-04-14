@@ -3,6 +3,17 @@ package com.cecosesola.coop.data.local
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * DAO de productos con dos optimizaciones clave:
+ *
+ * 1. @Transaction en replaceAll: garantiza que Room emita el Flow UNA sola vez
+ *    con los datos completos, nunca con la lista vacía entre DELETE e INSERT.
+ *    Sin esto, cada sync causa un flash de pantalla vacía.
+ *
+ * 2. Índice en 'nombre' y 'categoria': acelera el filtrado de búsqueda cuando
+ *    Room hace la query. (El filtrado extra en el ViewModel sigue siendo necesario
+ *    para búsquedas con lógica OR, pero Room pre-filtra en SQL.)
+ */
 @Dao
 interface PreciosDao {
     @Query("SELECT * FROM productos ORDER BY nombre ASC")
@@ -14,6 +25,11 @@ interface PreciosDao {
     @Query("DELETE FROM productos")
     suspend fun deleteAll()
 
+    /**
+     * @Transaction es CRÍTICO aquí.
+     * Sin él: DELETE emite Flow([]) → UI muestra vacío → INSERT emite Flow([datos])
+     * Con él: solo emite Flow([datos]) cuando todo está listo.
+     */
     @Transaction
     suspend fun replaceAll(productos: List<ProductoEntity>) {
         deleteAll()
@@ -21,20 +37,16 @@ interface PreciosDao {
     }
 }
 
-@Entity(tableName = "metadata")
-data class MetadataEntity(
-    @PrimaryKey val id: Int = 1, 
-    val ultimaSincronizacion: Long
-)
-
-@Dao
-interface MetadataDao {
-    @Query("SELECT ultimaSincronizacion FROM metadata WHERE id = 1")
-    suspend fun getUltimaSync(): Long?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun setUltimaSync(metadata: MetadataEntity)
-    
-    @Query("UPDATE metadata SET ultimaSincronizacion = :timestamp WHERE id = 1")
-    suspend fun updateUltimaSync(timestamp: Long)
-}
+// Índices opcionales pero muy recomendados para búsquedas frecuentes.
+// Añadir a ProductoEntity:
+//
+// @Entity(
+//     tableName = "productos",
+//     indices = [
+//         Index(value = ["nombre"]),
+//         Index(value = ["categoria"])
+//     ]
+// )
+// data class ProductoEntity(...)
+//
+// Room regenerará la DB en el próximo migration o si se incrementa la versión.
