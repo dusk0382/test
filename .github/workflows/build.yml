@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build
 
 permissions:
   contents: read
@@ -18,10 +18,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MAIN_PROJECT_MODULE: app
   APP_NAME: Cecosesola
   APK_FILE_NAME: Cecosesola
-  ORIGINAL_APK_PATH: /build/outputs/apk/release/app-release.apk
   STORE_FILE: apps.keystore
 
 jobs:
@@ -44,7 +42,7 @@ jobs:
 
       - name: Set up Keystore
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > ${{env.MAIN_PROJECT_MODULE}}/${{ env.STORE_FILE }}
+          echo "$KEYSTORE_BASE64" | base64 -d > ${{ env.STORE_FILE }}
         env:
           KEYSTORE_BASE64: ${{ secrets.SIGNING_KEY }}
 
@@ -59,7 +57,7 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Rename APK file
-        run: mv ${{env.MAIN_PROJECT_MODULE}}${{env.ORIGINAL_APK_PATH}} ${{env.APK_FILE_NAME}}.apk
+        run: mv app/build/outputs/apk/release/app-release.apk ${{env.APK_FILE_NAME}}.apk
 
       - name: Upload APK Release
         uses: actions/upload-artifact@v4
