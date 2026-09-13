@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cecosesola_orange">#FD4902</color>
+
+    <style name="Theme.CecosesolaPrecios" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/cecosesola_orange</item>
+        <item name="android:colorPrimary">@color/cecosesola_orange</item>
+    </style>
+</resources>
