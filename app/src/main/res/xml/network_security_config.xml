@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Los productos de la API oficial referencian imágenes servidas por http://
+         solo en ese host; todo lo demás (raw.githubusercontent, graphql) es https. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">kana.imk.cecosesola.coop</domain>
+    </domain-config>
+</network-security-config>
