@@ -38,7 +38,7 @@ class MergeTest {
         assertEquals("7591082000307", f.barcode)
         assertEquals("confiteria", f.categoria)
         assertEquals(1365.0, f.precioBs, 0.001) // canónica sigue siendo el mirror
-        assertEquals(0.9 * 832.49, f.precioAnteriorBs!!, 0.01) // anterior en Bs con tasa
+        assertEquals(0.9, f.precioAnteriorCec!!, 0.001) // el % se calcula CEC↔CEC
     }
 
     @Test

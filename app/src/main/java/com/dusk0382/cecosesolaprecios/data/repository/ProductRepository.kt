@@ -1,5 +1,9 @@
 package com.dusk0382.cecosesolaprecios.data.repository
 
+import android.content.Context
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.dusk0382.cecosesolaprecios.data.local.AppDatabase
 import com.dusk0382.cecosesolaprecios.data.local.CartLine
 import com.dusk0382.cecosesolaprecios.data.local.CartItemEntity
@@ -10,6 +14,7 @@ import com.dusk0382.cecosesolaprecios.data.remote.HttpClients
 import com.dusk0382.cecosesolaprecios.data.remote.OfficialApi
 import com.dusk0382.cecosesolaprecios.data.remote.RepoApi
 import com.dusk0382.cecosesolaprecios.data.remote.dto.PayloadOficial
+import com.dusk0382.cecosesolaprecios.data.sync.EnrichSyncWorker
 import com.dusk0382.cecosesolaprecios.domain.normalizarNombre
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,6 +25,7 @@ import kotlinx.serialization.json.Json
 
 @Singleton
 class ProductRepository @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val db: AppDatabase,
     private val http: HttpClients,
     private val repoApi: RepoApi,
@@ -49,6 +55,7 @@ class ProductRepository @Inject constructor(
     // — favoritos —
 
     fun favoriteIdsFlow(): Flow<List<Long>> = db.favoriteDao().idsFlow()
+    fun favoritosFlow(): Flow<List<ProductEntity>> = db.favoriteDao().favoritosConProductosFlow()
     fun isFavoriteFlow(id: Long): Flow<Boolean> = db.favoriteDao().isFavoriteFlow(id)
 
     suspend fun toggleFavorite(id: Long) = withContext(Dispatchers.IO) {
@@ -60,6 +67,10 @@ class ProductRepository @Inject constructor(
 
     fun cartFlow(): Flow<List<CartLine>> = db.cartDao().itemsWithProductFlow()
 
+    fun cartQuantityFlow(id: Long): Flow<Int?> = db.cartDao().quantityOfFlow(id)
+
+    fun cartCountFlow(): Flow<Int> = db.cartDao().countFlow()
+
     suspend fun setQuantity(productId: Long, quantity: Int) = withContext(Dispatchers.IO) {
         if (quantity <= 0) db.cartDao().remove(productId)
         else db.cartDao().upsert(CartItemEntity(productId, quantity))
@@ -68,6 +79,16 @@ class ProductRepository @Inject constructor(
     suspend fun clearCart() = withContext(Dispatchers.IO) { db.cartDao().clear() }
 
     // — sync —
+
+    /** Encola el enriquecimiento como worker one-time: la API oficial tarda
+     *  7–40s y no debe atarse al ciclo de vida del ViewModel. */
+    fun requestEnrich() {
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "sync_enrich_manual",
+            ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<EnrichSyncWorker>().build(),
+        )
+    }
 
     /** Sincroniza precios.json (rápido). True si hubo cambios. */
     suspend fun syncBase(): Boolean = withContext(Dispatchers.IO) {

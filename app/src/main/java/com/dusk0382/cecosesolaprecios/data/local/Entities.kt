@@ -30,8 +30,9 @@ data class ProductEntity(
     val imagenGrandeUrl: String? = null,
     /** Precio CEC ("precio solidario") actual — ≈ USD 1:1. */
     val precioCec: Double? = null,
-    /** Bs. Precio de la actualización anterior (solo API). */
-    val precioAnteriorBs: Double? = null,
+    /** Precio CEC de la actualización anterior (solo API). El % de variación se
+     *  calcula CEC↔CEC (misma moneda); Bs solo para mostrar. */
+    val precioAnteriorCec: Double? = null,
     val updatedAt: String? = null,
 
     val fuente: String = "repo",

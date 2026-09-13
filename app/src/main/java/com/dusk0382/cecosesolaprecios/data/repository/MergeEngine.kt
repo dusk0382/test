@@ -64,7 +64,8 @@ object MergeEngine {
             }?.toList() ?: emptyList()
 
     /** Enriquecimiento → upsert sobre filas existentes (match: apiId → barcode →
-     *  nombre normalizado) o insert nuevo con fuente "api". */
+     *  nombre normalizado) o insert nuevo con fuente "api". El delta de precio se
+     *  guarda en CEC (misma moneda en ambos puntos); Bs es solo para mostrar. */
     fun filasConEnriquecimiento(
         enriquecidos: List<ApiEnriquecido>,
         existentes: List<ProductEntity>,
@@ -75,8 +76,6 @@ object MergeEngine {
         val porNombre = existentes.associateBy { it.nombreNormalizado }
         return enriquecidos.map { e ->
             val vieja = porApiId[e.apiId] ?: e.barcode?.let { porBarcode[it] } ?: porNombre[normalizarNombre(e.nombre)]
-            val bs = e.precioCec * (tasaVedPorCec ?: 1.0)
-            val bsAnterior = e.precioAnteriorCec?.let { it * (tasaVedPorCec ?: 1.0) }
             vieja?.copy(
                 nombre = e.nombre,
                 nombreNormalizado = normalizarNombre(e.nombre),
@@ -88,14 +87,14 @@ object MergeEngine {
                 barcode = e.barcode,
                 imagenGrandeUrl = e.imagen,
                 precioCec = e.precioCec,
-                precioAnteriorBs = bsAnterior,
+                precioAnteriorCec = e.precioAnteriorCec,
                 updatedAt = e.updatedAt,
                 fuente = if (vieja.repoId != null) "ambas" else "api",
             ) ?: ProductEntity(
                 apiId = e.apiId,
                 nombre = e.nombre,
                 nombreNormalizado = normalizarNombre(e.nombre),
-                precioBs = bs,
+                precioBs = e.precioCec * (tasaVedPorCec ?: 1.0),
                 imagenUrl = e.imagen,
                 imagenGrandeUrl = e.imagen,
                 categoria = e.categoria,
@@ -103,7 +102,7 @@ object MergeEngine {
                 presentacion = e.presentacion,
                 barcode = e.barcode,
                 precioCec = e.precioCec,
-                precioAnteriorBs = bsAnterior,
+                precioAnteriorCec = e.precioAnteriorCec,
                 updatedAt = e.updatedAt,
                 fuente = "api",
             )

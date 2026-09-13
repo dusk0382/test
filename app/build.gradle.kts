@@ -111,6 +111,13 @@ dependencies {
 
     implementation(libs.work.runtime.ktx)
     implementation(libs.androidx.profileinstaller)
+    implementation(libs.androidx.datastore.preferences)
+
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.mlkit.barcode.scanning)
 
     testImplementation(libs.junit)
 }

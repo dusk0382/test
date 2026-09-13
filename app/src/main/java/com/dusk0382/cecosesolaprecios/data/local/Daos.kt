@@ -66,6 +66,14 @@ interface FavoriteDao {
     @Query("SELECT productId FROM favorites")
     fun idsFlow(): Flow<List<Long>>
 
+    @Query(
+        """
+        SELECT p.* FROM products p JOIN favorites f ON f.productId = p.localId
+        ORDER BY f.addedAt DESC
+        """
+    )
+    fun favoritosConProductosFlow(): Flow<List<ProductEntity>>
+
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE productId = :id)")
     suspend fun isFavorite(id: Long): Boolean
 
@@ -84,7 +92,7 @@ interface CartDao {
     @Query(
         """
         SELECT c.productId AS productId, c.quantity AS quantity, p.nombre AS nombre,
-               p.precioBs AS precioBs
+               p.precioBs AS precioBs, p.precioCec AS precioCec
         FROM cart_items c JOIN products p ON p.localId = c.productId
         ORDER BY c.addedAt
         """
@@ -102,6 +110,12 @@ interface CartDao {
 
     @Query("SELECT quantity FROM cart_items WHERE productId = :id")
     suspend fun quantityOf(id: Long): Int?
+
+    @Query("SELECT quantity FROM cart_items WHERE productId = :id")
+    fun quantityOfFlow(id: Long): Flow<Int?>
+
+    @Query("SELECT COUNT(*) FROM cart_items")
+    fun countFlow(): Flow<Int>
 }
 
 data class CartLine(
@@ -109,6 +123,8 @@ data class CartLine(
     val quantity: Int,
     val nombre: String,
     val precioBs: Double,
+    /** Precio solidario (USD). Null mientras la API oficial no haya enriquecido. */
+    val precioCec: Double?,
 )
 
 @Dao
