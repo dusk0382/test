@@ -1,3 +1,6 @@
+import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,13 +20,18 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
-        resourceConfigurations += listOf("es")
+    }
+
+    // Limita recursos a español (APK más chico en el G25). Sustituye a la
+    // vieja defaultConfig.resourceConfigurations, removida en AGP 9.
+    androidResources {
+        localeFilters += listOf("es")
     }
 
     // Release firmado con keystore persistente (uso personal): keystore.properties
     // en la raíz (no commiteado) o inyectado por CI desde secrets.
     val keystorePropsFile = rootProject.file("keystore.properties")
-    val keystoreProps = java.util.Properties().apply {
+    val keystoreProps = Properties().apply {
         if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
     }
     signingConfigs {
@@ -55,8 +63,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+        }
     }
     buildFeatures {
         compose = true
