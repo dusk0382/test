@@ -145,7 +145,9 @@ private fun AppNav() {
                     )
                 }
                 composable(Dest.Favoritos.route) {
-                    FavoritesScreen { id -> navController.navigate(Routes.detalle(id)) }
+                    FavoritesScreen(
+                        onOpenDetail = { id -> navController.navigate(Routes.detalle(id)) },
+                    )
                 }
                 composable(Dest.Carrito.route) {
                     CartScreen(vm = cartVm)

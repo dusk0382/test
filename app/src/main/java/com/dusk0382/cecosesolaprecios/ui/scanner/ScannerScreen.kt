@@ -38,6 +38,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.findViewTreeLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -245,5 +246,3 @@ private fun bindCamera(
     }, executor)
 }
 
-private fun android.view.View.findViewTreeLifecycleOwner(): LifecycleOwner? =
-    androidx.lifecycle.ViewTreeLifecycleOwner.get(this)
