@@ -81,7 +81,7 @@ interface FavoriteDao {
     fun isFavoriteFlow(id: Long): Flow<Boolean>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun add(productId: Long)
+    suspend fun add(item: FavoriteEntity)
 
     @Query("DELETE FROM favorites WHERE productId = :id")
     suspend fun remove(id: Long)

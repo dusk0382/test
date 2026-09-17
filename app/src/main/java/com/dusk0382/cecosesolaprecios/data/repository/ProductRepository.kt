@@ -8,6 +8,7 @@ import com.dusk0382.cecosesolaprecios.data.local.AppDatabase
 import com.dusk0382.cecosesolaprecios.data.local.CartLine
 import com.dusk0382.cecosesolaprecios.data.local.CartItemEntity
 import com.dusk0382.cecosesolaprecios.data.local.MetaEntity
+import com.dusk0382.cecosesolaprecios.data.local.FavoriteEntity
 import com.dusk0382.cecosesolaprecios.data.local.MetaKeys
 import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 import com.dusk0382.cecosesolaprecios.data.remote.HttpClients
@@ -60,7 +61,7 @@ class ProductRepository @Inject constructor(
 
     suspend fun toggleFavorite(id: Long) = withContext(Dispatchers.IO) {
         val dao = db.favoriteDao()
-        if (dao.isFavorite(id)) dao.remove(id) else dao.add(id)
+        if (dao.isFavorite(id)) dao.remove(id) else dao.add(FavoriteEntity(id))
     }
 
     // — carrito —
