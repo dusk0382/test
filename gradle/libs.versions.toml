@@ -2,9 +2,13 @@
 agp = "8.13.2"
 kotlin = "2.2.21"
 ksp = "2.2.21-2.0.5"
-composeBom = "2025.12.01"
+# 2025.11.01 a propósito: mapea Compose 1.9.5, la última línea que NO exige
+# AGP 9.1 (AAR metadata check). 2025.12.01 trae Compose 1.12 y requiere AGP 9.1.
+composeBom = "2025.11.01"
 hilt = "2.56.2"
-hiltNavigationCompose = "1.4.0"
+# 1.2.0 a propósito: hilt-navigation-compose 1.3+ exige AGP 9.1 (AAR metadata
+# check). Con AGP 8.13.x hay que quedarse en la línea 1.2.
+hiltNavigationCompose = "1.2.0"
 hiltWork = "1.2.0"
 room = "2.7.2"
 navigation = "2.9.8"
