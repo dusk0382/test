@@ -33,6 +33,9 @@ androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graph
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+# material3 NO depende de esto: sin esta línea no resuelven Icons.Filled/Outlined.
+# Es el set chico (~40 iconos, 5 temas); NO usar material-icons-extended (~10MB).
+androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
 
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 

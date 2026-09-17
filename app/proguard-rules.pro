@@ -2,9 +2,7 @@
 # La mayoría de las libs (Compose, Room, OkHttp, kotlinx-serialization) traen
 # sus propias reglas de consumidor. Solo se añaden excepciones reales aquí.
 
-# kotlinx-serialization: mantener serializers generados por el plugin
--if @kotlinx.serialization.Serializable class **
--keepclassmembers class <1> {
-    static <1>$Companion Companion;
-}
--keep interface kotlinx.serialization.<any> { *; }
+# kotlinx-serialization: los serializers los genera el plugin en compilación y
+# kotlinx-serialization-json ya trae sus propias reglas de consumidor, así que
+# no hace falta ninguna regla aquí. (Una regla con `kotlinx.serialization.<any>`
+# no es sintaxis válida de R8 y con enableR8.fullMode=true rompe el release.)

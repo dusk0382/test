@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -138,7 +139,10 @@ fun CatalogScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalItemSpacing = 8.dp,
                 ) {
-                    items(productos, key = { it.localId }) { p ->
+                    // alias: `items` de LazyListScope (LazyRow, arriba) y el de
+                    // LazyStaggeredGridScope son dos extensiones distintas con el
+                    // mismo nombre; sin alias el de la grid no resuelve.
+                    staggeredItems(productos, key = { it.localId }) { p ->
                         ProductoCard(p, onClick = { onOpenDetail(p.localId) })
                     }
                 }

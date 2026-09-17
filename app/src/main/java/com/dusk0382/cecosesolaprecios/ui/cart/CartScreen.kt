@@ -164,7 +164,7 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
                     }
                     Text(
                         totalTexto,
-                        style = MaterialTheme.typography.largeTitle.copy(fontFeatureSettings = "tnum"),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"),
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }

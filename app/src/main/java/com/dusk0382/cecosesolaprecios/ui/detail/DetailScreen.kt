@@ -88,7 +88,7 @@ fun DetailScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "$moneda ${formatBs(precio)}",
-                    style = MaterialTheme.typography.largeTitle.copy(fontFeatureSettings = "tnum"),
+                    style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"),
                     color = MaterialTheme.colorScheme.primary,
                 )
                 DeltaBadge(prod.precioCec, prod.precioAnteriorCec) // CEC↔CEC: misma moneda

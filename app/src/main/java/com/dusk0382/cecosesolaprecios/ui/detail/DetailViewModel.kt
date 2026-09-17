@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -26,7 +27,9 @@ class DetailViewModel @Inject constructor(
     val esFavorito: StateFlow<Boolean> = repo.isFavoriteFlow(id)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /** El DAO devuelve Int? (sin fila = no está en el carrito) → 0 para la UI. */
     val cantidadEnCarrito: StateFlow<Int> = repo.cartQuantityFlow(id)
+        .map { it ?: 0 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     fun toggleFavorite() = viewModelScope.launch { repo.toggleFavorite(id) }

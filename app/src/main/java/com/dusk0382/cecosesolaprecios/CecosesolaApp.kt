@@ -7,6 +7,7 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.crossfade
 import com.dusk0382.cecosesolaprecios.data.remote.HttpClients
 import com.dusk0382.cecosesolaprecios.data.sync.SyncScheduler
 import dagger.hilt.android.HiltAndroidApp
@@ -38,7 +39,7 @@ class CecosesolaApp : Application(), Configuration.Provider, SingletonImageLoade
                     .maxSizeBytes(12L * 1024 * 1024) // ~2–3GB de RAM: 12MB de bitmaps sobran
                     .build()
             }
-            .crossfade(false) // sin animación por imagen: Mali-G52 lo agradece
+            .crossfade(0) // 0 = sin transición (Coil 3 recibe duración en ms, no Boolean)
             .build()
 
     override fun onCreate() {

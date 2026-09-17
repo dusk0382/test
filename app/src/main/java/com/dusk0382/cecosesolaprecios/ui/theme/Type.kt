@@ -9,7 +9,9 @@ import androidx.compose.ui.unit.sp
 // Rampa M3 con la fuente del sistema (coste cero en G25; empaquetar fuentes
 // sería ~200KB + trabajo de cargado por nada).
 val Typography = Typography(
-    largeTitle = TextStyle(
+    // "largeTitle" es nombre de SwiftUI, no existe en Material3: el parámetro
+    // grande es headlineMedium (28sp por defecto, justo lo que se quería).
+    headlineMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Bold,
         fontSize = 28.sp,

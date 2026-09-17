@@ -65,7 +65,7 @@ El JSON interno tiene:
   minúsculas, sin acentos NFD, espacios colapsados — en `domain/Normaliza.kt`).
 - Upsert masivo; nunca `DELETE all` (el proyecto viejo perdía favoritos así).
 
-## 4. Estado del código (commit fcffdd2 + working tree SUCIO con ~15 archivos)
+## 4. Estado del código (commits 24d276e, fcffdd2, a228605 — árbol LIMPIO)
 
 ### Committeado y presumiblemente sólido
 - **Scaffold**: Gradle 8.13 wrapper (copiado de `keiyoushi/fork-extensions`, jar 8.x),
@@ -99,82 +99,46 @@ El JSON interno tiene:
   con placeholder `__WORKDIR__`), `testDebugUnitTest` → `assembleDebug` →
   `assembleRelease` → artefacto `apks`. Release lee `keystore.properties` si existe.
 
-### En el working tree, SIN commitear (el corte de la sesión)
-- **UI completa**: `CatalogScreen` (BasicTextField custom, chips categoría+orden,
-  PullToRefreshBox, staggered grid `Adaptive(170dp)`, `ProductoCard` flat-border sin
-  elevación, icono de escáner vectorial propio en el buscador), `CatalogViewModel`
-  (debounce 220 + flatMapLatest + stateIn WhileSubscribed(5s)), `DetailScreen`
-  (TopAppBar, imagen 220dp, datos key/value, stepper/agregar), `FavoritesScreen`,
-  `CartScreen` (SwipeToDismissBox EndToStart, steppers, total tabular, Intent ACTION_SEND
-  con texto del carrito, dialog vaciar), `DeltaBadge` (vectores propios ic_trending_*,
-  no material-icons-extended), `Format.kt` (DecimalFormat `#,##0.##` separadores fijos
-  es-VE "1.365,5" + `PriceText` con tnum), `nav/Routes.kt` (3 Dest con iconos filled/outlined),
-  `MainActivity` reescrito con Scaffold+NavigationBar+BadgedBox+NavHost (4 rutas),
-  `CecosesolaApp` ahora implementa `SingletonImageLoader.Factory` (Coil global con el
-  OkHttp `fast` compartido, memoryCache 12MB, crossfade OFF).
-- `data/prefs/AppPrefs.kt` (DataStore Preferences: themeMode SYSTEM/LIGHT/DARK + boolean
-  usd) y `ui/MainViewModel.kt` (expone ambos como StateFlow).
-- `ui/common/PrecioVisible.kt`: `precioVisible(usd)` devuelve (precio, "Bs"|"USD") —
-  **CREADO pero TODAVÍA NO CONECTADO** en las pantallas.
-- Deps nuevas en build.gradle/toml: CameraX 1.6.2 (core/camera2/lifecycle/view) +
-  ML Kit barcode bundled 17.3.0.
+### En el working tree, SIN commitear — YA NO EXISTE (todo commiteado en a228605)
+Todos los defectos 1–8 de la lista anterior fueron corregidos en el commit `a228605`.
+La sección se deja abajo solo como historia; el estado real está en §4bis.
 
-### ⚠️ LO QUE NO ESTÁ BIEN (a revisar primero, en orden)
-1. **`ui/scanner/ScannerScreen.kt` es un BORRADOR ROTO** — la última llamada antes del
-   corte iba a ser "rewrite cleanly". Defectos concretos a arreglar:
-   - `private fun kotlinx.coroutines.CoroutineScope.launch(...)` — extensión shadow
-     absurda; reemplazar por `viewModelScope.launch` (necesita scope: pasar el
-     `CoroutineScope` o usar `viewModelScope` inyectando launch desde fuera; lo más
-     simple: `init` con un scope propio o `SupervisorJob()+Dispatchers.Main`).
-   - `collectAsStateWithLifecycleSafe()` y `collectNothing()` son basura — usar
-     `androidx.lifecycle.compose.collectAsStateWithLifecycle` normal sobre `vm.resultado`.
-   - `import androidx.lifecycle.ViewModel` pero falta `dagger`/`viewModelScope`; revisar imports.
-   - `LaunchedEffect(lifecycleOwner)` para configurar CameraProvider: funcional pero
-     el listener de `future.addListener` puede fugarse tras dispose → guardar y
-     cancelar; o usar `await()` en coroutine.
-   - FALTA: el callback `onBack` nunca se usa (no hay UI para volver — el sistema back
-     sirve, pero añadir un IconButton de cierre queda mejor).
-   - La resolución `Size(1280,720)` en `ResolutionStrategy` para ImageAnalysis está bien
-     elegida a propósito para el G25 (mantener).
-2. **`MainActivity` usa `hiltViewModel<CartViewModel>()` en el Scaffold raíz** — funciona
-   (misma Activity-referenced store) pero el badge solo vive si el NavHost no destruye
-   el VM… verificar: los VM de tabs se destruyen al cambiar de tab; `CartViewModel`
-   se pide en `AppNav` (scope de la Activity) → OK, no se destruye. Pero `CartScreen`
-   TAMBIÉN pide su propio `hiltViewModel()` (scope de backstack entry) → dos instancias;
-   el badge lee una y la pantalla otra. **Unificar: que `CartScreen` reciba el VM o
-   usar `viewModel(viewModelStoreOwner = LocalContext as ComponentActivity)`** — o
-   mover el badge a leer `db.cartDao().countFlow()` vía un VM de la Activity.
-3. **DeltaBadge recibe (`p.precioCec ?: p.precioBs`, `p.precioAnteriorCec`)** en
-   CatalogScreen y DetailScreen: si `precioCec` es null, compara Bs contra CEC-anterior
-   → % basura. **Corregir: solo pintar el badge si `precioCec != null && precioAnteriorCec != null`**
-   (mover la guarda adentro: `if (actual==null) return` tomando Doubles nullables, o
-   pasar un booleano). MergeTest/ParserTest no cubren esto.
-4. **`Detalle` necesita el argumento Long**: `Routes.DETALLE="detalle/{productId}"`,
-   `navArgument LongType` puesto — OK — pero la función `Detalle` con
-   `savedStateHandle["productId"]` devuelve `Long?`: checkNotNull está; validar que
-   navigation-compose inyecte Long de ruta string (sí lo hace con NavType.LongType).
-5. **`CatalogViewModel.fechaRepo`** usa el truco `MutableStateFlow.also{launch}` —
-   se calcula una sola vez en la creación del VM y nunca se actualiza tras un refresh.
-   Cambiar por `flatMapLatest` sobre un trigger de refresh o recargarlo al terminar
-   `refresh()`.
-6. **`precioVisible`/`MainViewModel.usd`/toggle Bs⇄USD todavía no están cableados** a
-   las pantallas (ver §5.6). `MainActivity` tampoco usa `MainViewModel.themeMode` aún —
-   el Theme ignora el override manual (solo `isSystemInDarkTheme`).
-7. **Ajustes (Settings) NO existe como pantalla** — estaba en el plan (fechas de sync,
-   ferias, toggle tema/moneda, verificar datos). `Routes.AJUSTES`/`ESCANER` definidos
-   en `nav/Routes.kt` pero ninguna ruta los registra en el NavHost (escáner sí está en
-   el plan del paso siguiente).
-8. **Tests nuevos sin escribir para lo último** (prefs/visible). Parser/Merge siguen
-   corriendo y protegen datos.
-9. **Nada de esto ha COMPILADO nunca** — ni local (imposible) ni en CI (no hay remote).
-   Asumir errores de compilación en la primera corrida; el plan explícito era iterar
-   contra CI. Los sospechosos habituales: imports en scanner, `PlatformContext` cast en
-   `newImageLoader(context: PlatformContext)` (la firma de `SingletonImageLoader.Factory`
-   en Coil 3.6 es `newImageLoader(context: PlatformContext)`, OK, pero verificar),
-   `BorderStroke` importado inline como `androidx.compose.foundation.BorderStroke` en dos
-   screens (compila, feo), `Alignment` en `Column(..., horizontalAlignment=...)` en
-   CatalogScreen importado? (sí, `import Alignment` está), `FilterChip(selected=…)` sobre
-   `List<ProductEntity>`… — en fin: primero push, luego leer los errores del log.
+### 4bis. Defectos resueltos en a228605 (verificado leyendo el código final)
+1. ✅ `ScannerScreen.kt` reescrito limpio: `viewModelScope.launch`, `collectAsStateWithLifecycle`,
+   `DisposableEffect { onDispose { scanner.close() } }`, `bindCamera()` con guarda de
+   re-entrada vía `previewView.tag` + `findViewTreeLifecycleOwner()`, IconButton de cierre
+   cableado a `onBack`. Resolución 720p y KEEP_ONLY_LATEST conservadas.
+2. ✅ `CartViewModel` hoisted: `CartScreen(vm = cartVm)` explícito desde `AppNav` (scope
+   Activity). `CatalogViewModel` igual. Una sola instancia → badge y pantalla coherentes.
+3. ✅ `DeltaBadge(actual: Double?, anterior: Double?)` — guardas internas
+   (`if (actual == null || anterior == null) return`; `if (anterior <= 0.0 || actual == anterior) return`).
+   Las 2 llamadas pasan `p.precioCec, p.precioAnteriorCec` (CEC↔CEC), nunca Bs.
+4. ✅ Ruta detalle con `NavType.LongType` registrada en el NavHost con `navArgument`.
+5. ✅ `precioVisible` renombrado a `precioMostrado()` (extensión @Composable sobre
+   `ProductEntity`) + `LocalUsdPrecio` (`staticCompositionLocalOf`). Cableado en
+   catálogo, detalle y carrito.
+6. ✅ `MainActivity` usa `mainVm.themeMode` → resuelve SYSTEM/LIGHT/DARK a `darkTheme`
+   y lo pasa a `CecosesolaTheme(darkTheme = oscuro)`. `CompositionLocalProvider(LocalUsdPrecio provides usd)` envuelve el árbol.
+7. ✅ `ui/settings/SettingsScreen.kt` existe (`SettingsViewModel` + `SettingsScreen`):
+   fechas de sync por fuente, tasa oficial, ferias, botón "Verificar datos"
+   (`syncBase()` + `requestEnrich()`), selector de tema con FilterChips, toggle USD
+   (solo si hay tasa), crédito de fuente. Ambas rutas (`AJUSTES`, `ESCANER`) registradas.
+8. 🟡 Tests de prefs/visible: siguen sin escribir (bajo riesgo: son UI/formato).
+9. ❌ **SIGUE SIN COMPILAR NUNCA.** Este es el pendiente #1 real. No hay remote
+   todavía (el PAT que pasó el usuario dio 401 — ver §9).
+
+### 🆕 Defectos abiertos conocidos (post a228605)
+1. **`CartLine` cambió de forma** (se le añadió `precioCec: Double?`): el query del
+   `CartDao` y el data class se editaron juntos, pero **Room valida en compilación** —
+   cualquier desalineación salta en CI, no antes. Sin poder compilar, no está verificado.
+2. **`CatalogViewModel.fechaRepo`** sigue con el truco `MutableStateFlow.also { launch }`:
+   se calcula una vez y no se refresca tras `refresh()`. Cosmético (Ajustes ya muestra
+   las fechas de verdad) pero está ahí.
+3. **`ProductEntity.updatedAt`** se pinta como `it.substringBefore('T')` en Detalle —
+   funciona para ISO-8601 del mirror, pero no se verificó el formato de la API oficial.
+4. **Dark mode en DeltaBadge**: usa `isSystemInDarkTheme()` en vez del override manual
+   del tema (`ThemeMode.DARK` con SO en claro pintaría los colores de claro). Menor.
+5. ✅ `ic_launcher.xml` verificado: existe en `res/drawable/`. El manifest lo referencia bien.
 
 ## 5. Plan original (aprobado por el usuario) — pasos y dónde vamos
 
