@@ -11,3 +11,6 @@ keystore.properties
 *.keystore
 *.jks
 .freebuff/
+
+# Skills de agente instalados localmente (reinstalables con npx skills add)
+.agents/
