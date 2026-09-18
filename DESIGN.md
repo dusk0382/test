@@ -84,9 +84,13 @@ Reglas del primitivo:
 
 ## 5. Tokens
 
-- **Tipografía**: rampa M3 reducida y explícita. Estilos `*Emphasized` de M3E para
-  títulos y precio; `bodyMedium` para nombres; `labelLarge` para apoyo. Nunca
-  derivar tamaños "a ojo" en pantalla.
+- **Tipografía**: rampa M3 reducida y explícita (`Type.kt`). La jerarquía se hace con
+  **tamaño + peso**, nunca con MAYÚSCULAS ni colores. `bodyMedium` para nombres,
+  `labelLarge` para apoyo, y los estilo de precio con cifras tabulares.
+  *Limitación medida*: los estilos `*Emphasized` de M3 Expressive son `internal` en
+  material3 1.4.0 (como `MotionScheme`): se ven con javap pero el compilador los
+  rechaza. Hasta migrar de AGP, la expresividad tipográfica se construye con escala y
+  peso propios, no con la API de M3E.
 - **Espaciado**: base 4 dp. Gutters de pantalla 16, entre tarjetas 12, dentro de
   tarjeta 8, entre secciones 24. Un `object Spacing` es el único lugar donde se
   escriben números de espaciado.

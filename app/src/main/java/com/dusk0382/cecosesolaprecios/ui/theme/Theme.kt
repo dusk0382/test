@@ -80,7 +80,7 @@ private val EsquemaOscuro = darkColorScheme(
     surfaceContainerHigh = Color(Paleta.SuperficieAltaOscura),
     surfaceContainerHighest = Color(Paleta.SuperficieMaximaOscura),
     outline = Color(Paleta.ContornoOscuro),
-    outlineVariant = Color(Paleta.ContornoVarianteOscura),
+    outlineVariant = Color(Paleta.ContornoVarianteOscuro),
     scrim = Color(Paleta.Scrim),
 
     error = Color(Paleta.ErrorOscuro),

@@ -10,11 +10,12 @@ import androidx.compose.ui.unit.sp
  * Rampa reducida y explícita (DESIGN.md §5). Usa la fuente del sistema: empaquetar
  * una fuente cuesta ~200 KB y trabajo de carga que en un Helio G25 no se paga.
  *
- * Dos disciplinas:
- * 1. Se usan los estilos **Emphasized** de M3 Expressive para títulos y etiquetas:
- *    dan peso y ancho sin inventar tamaños a mano.
- * 2. La rampa es corta: display * no se usa nunca, y los tamaños que aparecen en
- *    pantalla son a lo sumo tres por vista. Menos rampa = jerarquía legible.
+ * Nota medida en CI: los estilos **Emphasized** de M3 Expressive (`titleLargeEmphasized`
+ * y compañía) son **internal** en material3 1.4.0, igual que `MotionScheme`. Se ven en
+ * el bytecode con javap, pero el compilador de Kotlin los rechaza. Hasta que se pueda
+ * subir a una línea de Compose que exige AGP 9, la «expresividad» de la tipografía se
+ * hace con escala, peso y tracking propios: la rampa es corta (no se usa display *),
+ * la jerarquía es tamaño + peso, y en pantalla no aparecen más de tres tamaños.
  */
 val Typography = Typography(
     headlineMedium = TextStyle(
@@ -23,17 +24,17 @@ val Typography = Typography(
         fontSize = 28.sp,
         lineHeight = 34.sp,
     ),
-    headlineSmallEmphasized = TextStyle(
+    headlineSmall = TextStyle(
         fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
         lineHeight = 30.sp,
     ),
-    titleLargeEmphasized = TextStyle(
+    titleLarge = TextStyle(
         fontWeight = FontWeight.SemiBold,
         fontSize = 22.sp,
         lineHeight = 28.sp,
     ),
-    titleMediumEmphasized = TextStyle(
+    titleMedium = TextStyle(
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         lineHeight = 22.sp,
@@ -47,7 +48,7 @@ val Typography = Typography(
     bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
     bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
     bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
-    labelLargeEmphasized = TextStyle(
+    labelLarge = TextStyle(
         fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
         lineHeight = 20.sp,
@@ -72,11 +73,11 @@ val Typography = Typography(
 val PrecioDetalle: TextStyle = Typography.headlineMedium.copy(fontFeatureSettings = "tnum")
 
 /** Precio en tarjeta: 20 sp semi-bold con cifras tabulares. */
-val PrecioTarjeta: TextStyle = Typography.titleLargeEmphasized.copy(
+val PrecioTarjeta: TextStyle = Typography.titleLarge.copy(
     fontSize = 20.sp,
     lineHeight = 26.sp,
     fontFeatureSettings = "tnum",
 )
 
 /** Cifra secundaria (total del carrito, precio por unidad) sin robar jerarquía. */
-val PrecioApoyo: TextStyle = Typography.titleMediumEmphasized.copy(fontFeatureSettings = "tnum")
+val PrecioApoyo: TextStyle = Typography.titleMedium.copy(fontFeatureSettings = "tnum")
