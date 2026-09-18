@@ -2,23 +2,28 @@ package com.dusk0382.cecosesolaprecios.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Semilla de marca: naranja Cecosesola (#FD4902)
-val OrangePrimary = Color(0xFFFD4902)
-val OrangeDark = Color(0xFFB93300)
-val OrangeContainerLight = Color(0xFFFFDBCF)
-val OnOrangeContainerLight = Color(0xFF3D0800)
+/**
+ * Colores de Compose, construidos desde [Paleta] (hex puro y medido).
+ * Los nombres que ya importaban las pantallas se conservan para no romper el build
+ * mientras se migra la UI; los nuevos roles viven en los esquemas de `Theme.kt`.
+ */
+val OrangePrimary = Color(Paleta.NaranjaMarca)
+val OrangeDark = Color(Paleta.AcentoPrecioOscuro)
+val OrangeContainerLight = Color(Paleta.MarcaContenedorClaro)
+val OnOrangeContainerLight = Color(Paleta.SobreMarcaContenedorClaro)
 
-val NeutralBackgroundLight = Color(0xFFFFF8F6)
-val NeutralSurfaceLight = Color(0xFFFFF8F6)
-val NeutralVariantLight = Color(0xFFF5DED6)
-val OnNeutralVariantLight = Color(0xFF53433F)
+val NeutralBackgroundLight = Color(Paleta.FondoClaro)
+val NeutralSurfaceLight = Color(Paleta.SuperficieClaro)
+val NeutralVariantLight = Color(Paleta.SuperficieVarianteClaro)
+val OnNeutralVariantLight = Color(Paleta.SobreSuperficieVarianteClaro)
 
-val NeutralBackgroundDark = Color(0xFF211A17)
-val NeutralSurfaceDark = Color(0xFF211A17)
-val NeutralVariantDark = Color(0xFF53433F)
-val OnNeutralVariantDark = Color(0xFFEDE2DE)
+val NeutralBackgroundDark = Color(Paleta.FondoOscuro)
+val NeutralSurfaceDark = Color(Paleta.SuperficieOscura)
+val NeutralVariantDark = Color(Paleta.SuperficieVarianteOscura)
+val OnNeutralVariantDark = Color(Paleta.SobreSuperficieVarianteOscuro)
 
-val PriceUpRed = Color(0xFFBA1A1A)
-val PriceDownGreen = Color(0xFF1B6C34)
-val PriceUpRedDark = Color(0xFFFFB4AB)
-val PriceDownGreenDark = Color(0xFF7FD69A)
+// Semántica de variación de precio: siempre CEC contra CEC (nunca Bs contra CEC).
+val PriceUpRed = Color(Paleta.SubeClaro)
+val PriceDownGreen = Color(Paleta.BajaClaro)
+val PriceUpRedDark = Color(Paleta.SubeOscuro)
+val PriceDownGreenDark = Color(Paleta.BajaOscuro)

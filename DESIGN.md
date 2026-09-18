@@ -45,9 +45,14 @@ Estas son las que ya cometimos. Ninguna vuelve sin justificación escrita aquí:
 8. **Sin animaciones de entrada de listas** ni crossfade de imágenes (518 ítems en un A53).
 9. **Sin mostrar dato inútil**: `presentacion = "item"`, `marca == categoria`, campos
    vacíos no se pintan.
-10. **Sin color de tema por defecto sin revisar**: el `secondaryContainer` automático
-    del generador M3 (rosa lavanda) queda fuera del buscador; ese fue el tell visual
-    más evidente de la app anterior.
+10. **Sin roles de color sin definir**. El esquema anterior declaraba 9 roles: todo
+    lo demás (`secondary`, `tertiary`, `secondaryContainer`, `surfaceContainerHighest`,
+    `outline`, `outlineVariant`) caía al **baseline lila** de Material3. Ése fue el
+    mecanismo real del buscador rosado y de los bordes violeta. Ahora cada rol que
+    puede pintar la app está definido y medido (`TemaContrasteTest`).
+11. **Sin blanco sobre el naranja de marca**: blanco sobre `#FD4902` da **3.43:1** y
+    falla AA para texto normal (era el botón "Agregar al carrito"). Sobre el naranja va
+    tinta oscura `#2A1200` (5.17:1). El naranja es **relleno**, no color de texto.
 
 ## 4. El primitivo único: "renglón de precio"
 
@@ -90,9 +95,18 @@ Reglas del primitivo:
 - **Movimiento** (funcional, no decorativo): 150 ms para cambios de estado;
   spring solo en el stepper del carrito y el toggle de favorito. Sin animaciones
   de entrada de listas. El indicador de la barra de navegación sí puede animar.
-- **Color**: `primary` = naranja de marca (precio/acción). Superficies neutras
-  cálidas. Semántica de variación de precio, siempre **CEC contra CEC**: sube =
-  rojo apagado, baja = verde apagado, en badges chicos, nunca tiñendo la tarjeta.
+- **Color** (medido, ver `Paleta.kt` y `TemaContrasteTest`):
+  - `primary` = naranja de marca `#FD4902`, **sólo relleno** (botones, FAB).
+  - `onPrimary` = tinta oscura `#2A1200` (5.17:1), nunca blanco (3.43:1 ✗).
+  - Acento de **precio** = `#B93300` en claro (5.66:1) y `#FFB59B` en oscuro
+    (10.07:1). No se usa `primary` como texto: como relleno y como texto tienen
+    requisitos de contraste distintos.
+  - Superficies neutras cálidas con tres niveles (`surface`, `surfaceContainerHigh`,
+    `surfaceContainerHighest`) para hacer jerarquía por **tono**, no por bordes.
+  - `secondary`/`tertiary` son neutros cálidos de la familia de la marca: existen
+    para que ningún componente caiga al lila por defecto.
+  - Variación de precio, siempre **CEC contra CEC**: sube = rojo apagado (6.16:1),
+    baja = verde apagado (6.17:1), en badges chicos, nunca tiñendo la tarjeta.
 
 ## 6. Puertas deterministas (no se juzga el diseño a ojo)
 
@@ -117,10 +131,25 @@ El diseño se verifica con cosas que fallan en CI, no con opiniones:
 - **Catálogo**: buscador (con limpiar) + icono de filtros con badge + FAB de
   escáner. Sin filas de chips de categoría. Los filtros activos se muestran como
   chips descartables **solo mientras existan**.
+- **Filtros** (patrón de la investigación: Baymard documenta que poner el conteo por
+  opción es la mejora de mayor impacto de una UI de filtros, y que forzar selección
+  única genera abandono):
+  - Un solo botón de filtros con badge de cuántos filtros hay activos, en una hoja.
+  - **Conteo de resultados junto a cada opción** ("Despensa (109)").
+  - **Multi-selección de rubros** (OR dentro de rubros, AND con el resto): poder ver
+    "Limpieza y aseo" + "Despensa" a la vez es una necesidad real, no un extra.
+  - Orden dentro de la misma hoja, y "Limpiar todo" visible.
+  - Los filtros aplicados se muestran como chips descartables **pegados arriba** de la
+    lista mientras existan, y el estado sobrevive al volver del detalle.
 - **Rubros**: los ~100 tags de la API no se navegan. Se usa la clasificación
   derivada y **medida** de `domain/Rubros.kt` (nombre primero, tag específico como
   respaldo), dentro del selector de filtros con buscador, conteo por rubro y
   secciones alfabéticas. `Otros` es una opción visible, no un cajón escondido.
+- **Consistencia en la tarjeta** (Baymard: 64% de los sitios falla en esto; mostrar un
+  atributo sólo en algunos ítems hace que el usuario descarte los demás): la tarjeta
+  muestra **siempre** imagen, nombre, precio y el control de carrito. El `%` de
+  variación y el precio solidario CEC **no** van en la tarjeta aunque existan para
+  algunos productos: van en el detalle, donde están todos los datos.
 - **Detalle**: nombre, precio grande, precio solidario CEC si existe, y **solo los
   datos reales** (se ocultan presentación vacía, marca redundante). Acción fija
   abajo: stepper si ya está en el carrito, botón si no. Sin imagen gigante vacía.

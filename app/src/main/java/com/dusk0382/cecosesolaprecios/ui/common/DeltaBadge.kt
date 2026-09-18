@@ -1,7 +1,6 @@
 package com.dusk0382.cecosesolaprecios.ui.common
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -14,10 +13,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.dusk0382.cecosesolaprecios.R
-import com.dusk0382.cecosesolaprecios.ui.theme.PriceDownGreen
-import com.dusk0382.cecosesolaprecios.ui.theme.PriceDownGreenDark
-import com.dusk0382.cecosesolaprecios.ui.theme.PriceUpRed
-import com.dusk0382.cecosesolaprecios.ui.theme.PriceUpRedDark
+import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 
 /**
  * Variación de precio. **Ambos montos deben estar en la misma moneda**: se le
@@ -41,11 +37,10 @@ fun DeltaBadge(
     val pct = ((actual - anterior) / anterior * 100).toInt()
     if (pct == 0) return
 
-    val dark = isSystemInDarkTheme()
-    val tint = when {
-        subio -> if (dark) PriceUpRedDark else PriceUpRed
-        else -> if (dark) PriceDownGreenDark else PriceDownGreen
-    }
+    // Los colores vienen del tema (CompositionLocal), no de isSystemInDarkTheme:
+    // con tema manual en "Oscuro" y SO en claro, mirar el SO pintaba al revés.
+    val colores = LocalColoresPrecio.current
+    val tint = if (subio) colores.sube else colores.baja
 
     Row(
         modifier = modifier,
