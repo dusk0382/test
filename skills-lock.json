@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "anti-ai-slop-ui": {
+      "source": "rwcod/anti-ai-slop-ui",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "f4cd7c30f7b851dabf070cd732def357cf5732781678dc2667af501370baa7b9"
+    },
+    "compose-animations": {
+      "source": "chrisbanes/skills",
+      "sourceType": "github",
+      "skillPath": "skills/compose-animations/SKILL.md",
+      "computedHash": "fc208d321e171dcc1930a93705dab9e0ed796dcb43d1b4974dd7184f1d65adb3"
+    },
+    "compose-component-design": {
+      "source": "chrisbanes/skills",
+      "sourceType": "github",
+      "skillPath": "skills/compose-component-design/SKILL.md",
+      "computedHash": "b1a5c84b539a86cb81af0369be56dede08339ae4ab50925151656348ec74a04a"
+    },
+    "compose-performance": {
+      "source": "chrisbanes/skills",
+      "sourceType": "github",
+      "skillPath": "skills/compose-performance/SKILL.md",
+      "computedHash": "c5c4df45b1ba1ce10f1e7669aff70d5c68a04963b1d51db89f76c85d9e26e24d"
+    },
+    "edge-to-edge": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "system/edge-to-edge/SKILL.md",
+      "computedHash": "7db3c09f145f5bad71b09da526dad46cb8b2ace56e62e87aa2ca7e81a0b4790e"
+    },
+    "styles": {
+      "source": "android/skills",
+      "sourceType": "github",
+      "skillPath": "jetpack-compose/theming/styles/SKILL.md",
+      "computedHash": "8a48036f2673329dc4d2f419ab5473d25a741d550c817c707e3be42ae30517a2"
+    }
+  }
+}

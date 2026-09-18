@@ -83,7 +83,7 @@ class RubrosTest {
     @Test
     fun `casos congelados del catalogo real`() {
         // nombre, tags, rubro esperado
-        val casos = listOf(
+        val casos: List<Triple<String, List<String>, Rubro>> = listOf(
             Triple("Galleta Maria Puig", listOf("confiteria"), Rubro.DULCES_Y_SNACKS),
             Triple("ABONO LIQUIDO", listOf("verdura"), Rubro.FRUTAS_Y_VERDURAS),
             Triple("perrarina super can adulto 500gr", emptyList(), Rubro.MASCOTAS),
@@ -105,7 +105,7 @@ class RubrosTest {
         // "perro" metia el pan de hot dog en Mascotas; "tornillo" metia la pasta
         // corta en Ferreteria; "crema" metia la leche descremada en Bebidas y
         // "crema dental" fuera de Limpieza; "pasta" metia "pasta dental" en Despensa.
-        val casos = listOf(
+        val casos: List<Triple<String, List<String>, Rubro>> = listOf(
             Triple("Pan de Perros Caliente", emptyList(), Rubro.PANADERIA),
             Triple("Pasta Especial Corta Tornillo", emptyList(), Rubro.DESPENSA),
             Triple("Leche Descremada Purisima 1lt", emptyList(), Rubro.BEBIDAS_Y_LACTEOS),
