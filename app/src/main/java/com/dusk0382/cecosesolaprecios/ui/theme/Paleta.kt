@@ -94,8 +94,10 @@ internal fun ratioContraste(a: Long, b: Long): Double {
 }
 
 private fun luminanciaRelativa(argb: Long): Double {
-    fun canal(v: Long): Double {
-        val c = ((argb shr v) and 0xFFL) / 255.0
+    // El desplazamiento es Int (Long.shr acepta Int); pasar 16 a un parámetro Long
+    // no compila y fue el error que trajo CI.
+    fun canal(desplazamiento: Int): Double {
+        val c = ((argb shr desplazamiento) and 0xFFL) / 255.0
         return if (c <= 0.03928) c / 12.92 else Math.pow((c + 0.055) / 1.055, 2.4)
     }
     return 0.2126 * canal(16) + 0.7152 * canal(8) + 0.0722 * canal(0)
