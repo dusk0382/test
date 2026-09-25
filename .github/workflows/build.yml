@@ -40,7 +40,9 @@ jobs:
           fi
 
       - name: Tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        # --info TEMPORAL: KSP traga el error raiz de resolucion y solo reporta
+        # el sintoma de Hilt; con --info el log muestra la causa real.
+        run: ./gradlew :app:testDebugUnitTest --stacktrace --info
 
       - name: Build Debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
