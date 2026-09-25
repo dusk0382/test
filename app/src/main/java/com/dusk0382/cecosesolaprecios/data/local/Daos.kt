@@ -34,7 +34,7 @@ interface ProductDao {
         orden: String,
     ): Flow<List<ProductEntity>>
 
-    @Query("SELECT clase, COUNT(*) FROM products GROUP BY clase ORDER BY COUNT(*) DESC")
+    @Query("SELECT clase, COUNT(*) AS total FROM products GROUP BY clase ORDER BY COUNT(*) DESC")
     fun conteoPorClaseFlow(): Flow<List<ClaseConteo>>
 
     @Query("SELECT * FROM products WHERE localId = :id")
