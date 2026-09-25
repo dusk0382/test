@@ -159,3 +159,37 @@ El diseño se verifica con cosas que fallan en CI, no con opiniones:
   abajo: stepper si ya está en el carrito, botón si no. Sin imagen gigante vacía.
 - **Barra inferior**: `ShortNavigationBar` en Catálogo, Favoritos y Carrito.
   **Oculta** en Detalle y Escáner (tareas de pantalla completa).
+
+## 8. Auditoría por skills (2026-09-25, code a reescribir)
+
+Pasada una por una de las 6 skills instaladas sobre el código actual. Lo que
+sigue es la lista de fix pendiente por cada lente — el rediseño de pantallas la
+cierra:
+
+1. **compose-component-design**: `ProductoCard` no acepta `Modifier` (el caller
+   no puede controlar ubicación). `Dato()` duplicado en Detail y Settings;
+   `QtyButton` (Detail) y `Stepper` (Cart) son el mismo concepto con dos
+   implementaciones → van a `ui/common` como un único componente.
+2. **compose-performance**: `query` se colecta al tope de `CatalogScreen`, cada
+   tecleo recompone chips + orden + grid scope. El campo de búsqueda debe ser
+   dueño de su estado y empujar al VM. `fechaRepo` en el VM usa el patrón frágil
+   `MutableStateFlow(null).also { launch {} }`. `ProductEntity` es estable y las
+   grillas usan `key` — eso ya está bien.
+3. **compose-animations**: la app no tiene una sola animación. Plan mínimo
+   funcional (nada decorativo): `animateContentSize()` en steppers, `Crossfade`
+   para vacío↔resultados, `fadeIn/out` en el NavHost, `AnimatedVisibility` para
+   FAB y badge del carrito. Motion en fase draw/layout, jamás recomponiendo por
+   frame (Mali-G52).
+4. **styles** (Google): la API `Styles` que promueve requiere Compose
+   1.12-alpha (bloqueada por AGP 9.1) — no aplicable. Su paso de auditoría
+   encontró: color limpio (cero hex fuera de theme/ ✓) pero **7 radios de
+   esquina escritos a mano** (8/12/14/16/20/28 dp) en vez de los tokens de
+   `Forma.kt` → todos a `MaterialTheme.shapes.*`.
+5. **edge-to-edge**: falta `enableEdgeToEdge()` en MainActivity (con targetSdk
+   35 el sistema lo fuerza igual, pero sin la llamada los iconos de las barras
+   dependen del default). Falta `isAppearanceLightNavigationBars` (solo se toca
+   el de status) y `isNavigationBarContrastEnforced = false`. Son 3 líneas.
+6. **anti-ai-slop-ui**: su lint web no escanea Kotlin (esperado). Grep propio:
+   quedan 2 `border` sueltos (ProductoCard y CartRow — regla §3.2) y un emoji
+   🛒 en el texto compartido del carrito (cambia por texto plano). El resto de
+   tells de la §3 ya estaban cerrados.
