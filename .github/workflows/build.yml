@@ -1,7 +1,7 @@
 name: Build APK
 
 permissions:
-  contents: read
+  contents: write # el paso de Release (solo en tags v*) sube los APKs al release
 
 on:
   push:
@@ -48,11 +48,27 @@ jobs:
       - name: Build Release APK
         run: ./gradlew :app:assembleRelease --stacktrace
 
-      - name: Subir artefactos
+      - name: Subir APK debug (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: apks
-          path: |
+          name: apk-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Subir APK release firmado (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-release
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      # Solo al empujar un tag v* (p.ej. git tag v1.0 && git push origin v1.0):
+      # los APKs quedan como assets descargables directos, sin zip ni artifact.
+      - name: Publicar Release (solo tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
