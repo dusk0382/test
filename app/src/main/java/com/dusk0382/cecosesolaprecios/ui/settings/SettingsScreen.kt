@@ -36,6 +36,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.dusk0382.cecosesolaprecios.data.prefs.ThemeMode
+import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
 import com.dusk0382.cecosesolaprecios.ui.MainViewModel
 import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
