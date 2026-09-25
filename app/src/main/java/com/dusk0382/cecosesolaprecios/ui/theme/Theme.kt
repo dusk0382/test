@@ -130,7 +130,16 @@ fun CecosesolaTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as android.app.Activity).window
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            val controller = WindowCompat.getInsetsController(window, view)
+            // Ambas barras: sin esto, en tema claro los iconos de la barra de
+            // navegación quedaban blancos (ilegibles) — DESIGN.md §8.5.
+            controller.isAppearanceLightStatusBars = !darkTheme
+            controller.isAppearanceLightNavigationBars = !darkTheme
+            // Evita el scrim translúcido del sistema sobre nuestra NavigationBar:
+            // el color del tema debe llegar hasta el borde real de la pantalla.
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                window.isNavigationBarContrastEnforced = false
+            }
         }
     }
     CompositionLocalProvider(

@@ -54,6 +54,7 @@ import com.dusk0382.cecosesolaprecios.ui.common.LocalUsdPrecio
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.importeLinea
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
+import com.dusk0382.cecosesolaprecios.ui.common.Stepper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -227,7 +228,7 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
         Card(
             shape = MaterialTheme.shapes.medium,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            // Sin borde: la jerarquía la da el tono del contenedor (DESIGN.md §3.2).
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
             Row(
@@ -243,7 +244,7 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Stepper(qty = linea.quantity, onQty = onQty)
+                Stepper(cantidad = linea.quantity, onCantidad = onQty)
                 Spacer(Modifier.width(12.dp))
                 Text(
                     linea.importeLinea(usd),
@@ -256,24 +257,6 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
     }
 }
 
-@Composable
-private fun Stepper(qty: Int, onQty: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        OutlinedButton(onClick = { onQty(qty - 1) }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(36.dp)) {
-            Text("−")
-        }
-        Text(
-            "$qty",
-            style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
-            modifier = Modifier.width(width = 32.dp),
-            textAlign = TextAlign.Center,
-        )
-        OutlinedButton(onClick = { onQty(qty + 1) }, contentPadding = PaddingValues(0.dp), modifier = Modifier.size(36.dp)) {
-            Text("+")
-        }
-    }
-}
-
 /**
  * Texto plano para compartir. El total usa la misma regla que la pantalla
  * (USD solo si todos los ítems lo tienen); el precio unitario se rotula por
@@ -281,7 +264,7 @@ private fun Stepper(qty: Int, onQty: (Int) -> Unit) {
  */
 private fun compartirCarrito(context: Context, lineas: List<CartLine>, usd: Boolean) {
     val sb = StringBuilder()
-    sb.append("🛒 Carrito — precios Cecosesola\n\n")
+    sb.append("Mi carrito — precios Cecosesola\n\n")
     lineas.forEach { l ->
         val (precio, moneda) = l.precioMostrado(usd)
         sb.append("• ${l.nombre} ×${l.quantity} = $moneda ${formatBs(precio * l.quantity)}\n")

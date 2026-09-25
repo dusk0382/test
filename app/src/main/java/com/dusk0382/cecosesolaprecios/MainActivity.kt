@@ -3,6 +3,12 @@ package com.dusk0382.cecosesolaprecios
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,7 +60,10 @@ import kotlinx.coroutines.launch
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        // Edge-to-edge explícito (targetSdk 35 lo fuerza igual): sin esta llamada
+        // los iconos de las system bars dependen del default del sistema. La
+        // versión de ComponentActivity maneja ambos barras automaticamente.
+        enableEdgeToEdge()
         setContent {
             // El tema y la moneda viven en la Activity: la altura de composición
             // de arriba (CecosesolaTheme + CompositionLocal) es lo único que
@@ -98,35 +107,47 @@ private fun AppNav() {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // Destinos sin barra inferior: tareas de pantalla completa (DESIGN.md §7).
+    val rutaActual = actual?.route
+    val barraVisible = rutaActual in destinos.map { it.route }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            NavigationBar {
-                destinos.forEach { d ->
-                    val seleccionada = actual?.hierarchy?.any { it.route == d.route } == true
-                    NavigationBarItem(
-                        selected = seleccionada,
-                        onClick = {
-                            navController.navigate(d.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (d == Dest.Carrito && cartCount > 0) Badge { Text("$cartCount") }
-                                },
-                            ) {
-                                Icon(
-                                    if (seleccionada) d.selectedIcon else d.unselectedIcon,
-                                    contentDescription = d.label,
-                                )
-                            }
-                        },
-                        label = { Text(d.label) },
-                    )
+            // AnimatedVisibility desmonta la barra al salir (ciclo de vida
+            // correcto); el slide sigue la convención de M3 para el bottom bar.
+            AnimatedVisibility(
+                visible = barraVisible,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+            ) {
+                NavigationBar {
+                    destinos.forEach { d ->
+                        val seleccionada = actual?.hierarchy?.any { it.route == d.route } == true
+                        NavigationBarItem(
+                            selected = seleccionada,
+                            onClick = {
+                                navController.navigate(d.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = {
+                                BadgedBox(
+                                    badge = {
+                                        if (d == Dest.Carrito && cartCount > 0) Badge { Text("$cartCount") }
+                                    },
+                                ) {
+                                    Icon(
+                                        if (seleccionada) d.selectedIcon else d.unselectedIcon,
+                                        contentDescription = d.label,
+                                    )
+                                }
+                            },
+                            label = { Text(d.label) },
+                        )
+                    }
                 }
             }
         },
@@ -173,7 +194,9 @@ private fun AppNav() {
                         },
                         onNotFound = { codigo ->
                             navController.popBackStack()
-                            catalogVm.onQueryChange(codigo)
+                            // Buscar por dígitos del código no puede dar resultados
+                            // (los nombres no contienen el EAN): el snackbar es
+                            // honesto y sugiere el camino que sí funciona.
                             scope.launch {
                                 snackbarHostState.showSnackbar(
                                     "El código $codigo no está en la lista. Prueba a buscarlo por nombre.",

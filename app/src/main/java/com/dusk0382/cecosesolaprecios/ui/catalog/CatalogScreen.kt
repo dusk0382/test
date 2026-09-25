@@ -1,10 +1,20 @@
 package com.dusk0382.cecosesolaprecios.ui.catalog
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,43 +24,69 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import com.dusk0382.cecosesolaprecios.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.dusk0382.cecosesolaprecios.R
 import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
-import com.dusk0382.cecosesolaprecios.ui.common.DeltaBadge
+import com.dusk0382.cecosesolaprecios.domain.Rubro
+import com.dusk0382.cecosesolaprecios.domain.etiquetaVisible
+import com.dusk0382.cecosesolaprecios.domain.formatearNombreProducto
 import com.dusk0382.cecosesolaprecios.ui.common.PriceText
+import com.dusk0382.cecosesolaprecios.ui.common.Stepper
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
+import com.dusk0382.cecosesolaprecios.ui.theme.AltoImagenTarjeta
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
+import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Catálogo según DESIGN.md §7: buscador + botón de filtros con badge + FAB de
+ * escáner. Sin filas de chips de categoría: los ~100 tags de la API no son
+ * navegables (los reemplaza la clasificación medida de `domain/Rubros.kt`).
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CatalogScreen(
     vm: CatalogViewModel,
@@ -58,145 +94,259 @@ fun CatalogScreen(
     onScan: () -> Unit = {},
     onSettings: () -> Unit = {},
 ) {
-    val query by vm.query.collectAsStateWithLifecycle()
     val productos by vm.productos.collectAsStateWithLifecycle()
-    val categorias by vm.categorias.collectAsStateWithLifecycle()
-    val categoriaSel by vm.categoria.collectAsStateWithLifecycle()
+    val clasesSel by vm.clasesSel.collectAsStateWithLifecycle()
+    val conteoClases by vm.conteoClases.collectAsStateWithLifecycle()
     val orden by vm.orden.collectAsStateWithLifecycle()
     val sincronizando by vm.sincronizando.collectAsStateWithLifecycle()
     val total by vm.total.collectAsStateWithLifecycle()
     val yaRefrescado by vm.yaRefrescado.collectAsStateWithLifecycle()
+    val cantidades by vm.cantidades.collectAsStateWithLifecycle()
+    val favoritos by vm.favoritos.collectAsStateWithLifecycle()
 
-    Column(Modifier.fillMaxSize()) {
-        // Cabecera propia en vez de TopAppBar: un TopAppBar con scrollBehavior
-        // añade estado y mediciones que en la A53 se notan; esto es una Row.
-        Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onSettings) {
-                Icon(painterResource(R.drawable.ic_settings), "Ajustes")
-            }
-        }
+    // El campo de búsqueda es dueño de su estado: cada tecleo sólo recompone el
+    // campo, no los chips ni la grilla (DESIGN.md §8.2). Al VM llega el valor,
+    // y el debounce decide cuándo reconsultar.
+    var query by rememberSaveable { mutableStateOf(vm.busquedaInicial()) }
+    var filtrosAbiertos by rememberSaveable { mutableStateOf(false) }
 
-        SearchField(query, vm::onQueryChange, sincronizando, onScan)
-
-        if (categorias.isNotEmpty()) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            // — Cabecera: título + filtros (con badge de activos) + ajustes —
+            Row(
+                Modifier.fillMaxWidth().padding(start = Espacio.l, end = Espacio.xs, top = Espacio.s),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                items(listOf(null) + categorias) { cat ->
-                    FilterChip(
-                        selected = categoriaSel == cat,
-                        onClick = { vm.onCategoriaClick(cat) },
-                        label = { Text(cat?.replaceFirstChar { it.uppercase() } ?: "Todas") },
-                    )
-                }
-            }
-        }
-
-        // orden: fila compacta de chips
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Orden.entries.forEach { o ->
-                FilterChip(
-                    selected = orden == o,
-                    onClick = { vm.onOrdenClick(o) },
-                    label = { Text(o.label, style = MaterialTheme.typography.labelMedium) },
+                Text(
+                    text = "Cecosesola",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
                 )
-            }
-        }
-
-        PullToRefreshBox(
-            isRefreshing = sincronizando,
-            onRefresh = vm::refresh,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            if (productos.isEmpty()) {
-                Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (total == 0) {
-                            "Aún no hay precios cargados.\nJala hacia abajo para sincronizar."
-                        } else {
-                            if (yaRefrescado) "Sin resultados para tu búsqueda." else "Cargando precios…"
+                IconButton(onClick = { filtrosAbiertos = true }) {
+                    BadgedBox(
+                        badge = {
+                            if (clasesSel.isNotEmpty()) {
+                                Badge { Text("${clasesSel.size}") }
+                            }
                         },
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    ) {
+                        Icon(painterResource(R.drawable.ic_filter), "Filtros")
+                    }
                 }
-            } else {
-                LazyVerticalStaggeredGrid(
-                    columns = StaggeredGridCells.Adaptive(170.dp),
-                    contentPadding = PaddingValues(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalItemSpacing = 8.dp,
+                IconButton(onSettings) {
+                    Icon(painterResource(R.drawable.ic_settings), "Ajustes")
+                }
+            }
+
+            // — Buscador: icono de búsqueda, texto, limpiar —
+            CampoBusqueda(
+                query = query,
+                onChange = { query = it; vm.onBusquedaChange(it) },
+                modifier = Modifier.padding(horizontal = Espacio.l, vertical = Espacio.s),
+            )
+
+            // — Filtros activos como chips descartables, sólo mientras existan —
+            if (clasesSel.isNotEmpty()) {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = Espacio.l),
+                    horizontalArrangement = Arrangement.spacedBy(Espacio.s),
                 ) {
-                    // alias: `items` de LazyListScope (LazyRow, arriba) y el de
-                    // LazyStaggeredGridScope son dos extensiones distintas con el
-                    // mismo nombre; sin alias el de la grid no resuelve.
-                    staggeredItems(productos, key = { it.localId }) { p ->
-                        ProductoCard(p, onClick = { onOpenDetail(p.localId) })
+                    lazyItems(clasesSel.sorted()) { clase ->
+                        FilterChip(
+                            selected = true,
+                            onClick = { vm.toggleClase(clase) },
+                            label = { Text(etiquetaClase(clase)) },
+                        )
+                    }
+                }
+            }
+
+            // — Contenido: estado vacío ↔ grilla, con crossfade (no corte seco) —
+            PullToRefreshBox(
+                isRefreshing = sincronizando,
+                onRefresh = vm::refresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                Crossfade(
+                    targetState = productos.isEmpty(),
+                    label = "catalogo-estado",
+                    modifier = Modifier.fillMaxSize(),
+                ) { vacio ->
+                    if (vacio) {
+                        EstadoVacio(total, yaRefrescado)
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            contentPadding = PaddingValues(Espacio.m),
+                            horizontalArrangement = Arrangement.spacedBy(Espacio.m),
+                            verticalArrangement = Arrangement.spacedBy(Espacio.m),
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            items(productos, key = { it.localId }) { p ->
+                                RenglonProducto(
+                                    producto = p,
+                                    cantidad = cantidades[p.localId] ?: 0,
+                                    esFavorito = p.localId in favoritos,
+                                    onCantidad = { vm.setCantidad(p.localId, it) },
+                                    onFavorito = { vm.toggleFavorito(p.localId) },
+                                    onClick = { onOpenDetail(p.localId) },
+                                    modifier = Modifier.animateItem(),
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
+
+        // — FAB de escáner: entra con spring, se va al navegar (no teletransportación) —
+        AnimatedVisibility(
+            visible = !sincronizando,
+            enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(Espacio.l),
+        ) {
+            FloatingActionButton(
+                onClick = onScan,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                Icon(painterResource(R.drawable.ic_qr_scanner), "Escanear código de barras")
+            }
+        }
+    }
+
+    if (filtrosAbiertos) {
+        HojaFiltros(
+            clasesSel = clasesSel,
+            conteoClases = conteoClases,
+            orden = orden,
+            onOrden = vm::onOrdenClick,
+            onToggleClase = vm::toggleClase,
+            onLimpiar = vm::limpiarFiltros,
+            onCerrar = { filtrosAbiertos = false },
+        )
     }
 }
 
+/** "DESPENSA" → "Despensa" con fallback seguro si el nombre no es un rubro. */
+private fun etiquetaClase(nombre: String): String =
+    runCatching { Rubro.valueOf(nombre).etiquetaVisible() }.getOrDefault(nombre)
+
 @Composable
-private fun SearchField(query: String, onChange: (String) -> Unit, busy: Boolean, onScan: () -> Unit) {
+private fun CampoBusqueda(
+    query: String,
+    onChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(Espacio.toqueMinimo)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.extraLarge),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier.fillMaxWidth()
-                .height(48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+        Icon(
+            Icons.Filled.Search,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = Espacio.l).size(20.dp),
+        )
+        androidx.compose.foundation.text.BasicTextField(
+            value = query,
+            onValueChange = onChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+            modifier = Modifier.weight(1f).padding(horizontal = Espacio.s),
+        )
+        if (query.isNotEmpty()) {
+            IconButton(onClick = { onChange("") }) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Limpiar búsqueda",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Spacer(Modifier.width(Espacio.s))
+    }
+}
+
+/** Placeholder del buscador: lo dibuja el propio campo (sin composable extra). */
+@Composable
+private fun EstadoVacio(total: Int, yaRefrescado: Boolean) {
+    Box(Modifier.fillMaxSize().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
+        Text(
+            text = when {
+                total == 0 -> "Aún no hay precios cargados.\nJala hacia abajo para sincronizar."
+                yaRefrescado -> "Sin resultados para tu búsqueda."
+                else -> "Cargando precios…"
+            },
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/**
+ * Hoja de filtros: orden (segmentado), rubros con conteo por opción
+ * (Baymard: la mejora de mayor impacto) y multi-selección. Ver DESIGN.md §7.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun HojaFiltros(
+    clasesSel: Set<String>,
+    conteoClases: List<com.dusk0382.cecosesolaprecios.data.local.ClaseConteo>,
+    orden: Orden,
+    onOrden: (Orden) -> Unit,
+    onToggleClase: (String) -> Unit,
+    onLimpiar: () -> Unit,
+    onCerrar: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onCerrar) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Espacio.l)
+                .padding(bottom = Espacio.xxl),
         ) {
+            Text("Orden", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(Espacio.s))
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                Orden.entries.forEachIndexed { i, o ->
+                    SegmentedButton(
+                        selected = orden == o,
+                        onClick = { onOrden(o) },
+                        shape = SegmentedButtonDefaults.itemShape(i, Orden.entries.size),
+                    ) {
+                        Text(o.label)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(Espacio.xl))
             Row(
-                Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Search, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.weight(1f).fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-                    androidx.compose.foundation.text.BasicTextField(
-                        value = query,
-                        onValueChange = onChange,
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                        decorationBox = { inner ->
-                            if (query.isEmpty()) {
-                                Text(
-                                    "Buscar producto…",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            inner()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                Text("Rubros", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = onLimpiar, enabled = clasesSel.isNotEmpty()) {
+                    Text("Limpiar todo")
                 }
-                if (busy) Spacer(Modifier.width(8.dp))
-                if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(4.dp))
-                IconButton(onScan, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        painterResource(R.drawable.ic_qr_scanner),
-                        "Escanear código",
-                        Modifier.size(22.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Espacio.s),
+                verticalArrangement = Arrangement.spacedBy(Espacio.s),
+            ) {
+                conteoClases.forEach { cc ->
+                    FilterChip(
+                        selected = cc.clase in clasesSel,
+                        onClick = { onToggleClase(cc.clase) },
+                        label = { Text("${etiquetaClase(cc.clase)} (${cc.total})") },
                     )
                 }
             }
@@ -204,48 +354,121 @@ private fun SearchField(query: String, onChange: (String) -> Unit, busy: Boolean
     }
 }
 
-/** Card flat con outline: sombras elevadas cuestan en la Mali-G52. */
+/**
+ * El primitivo único (DESIGN.md §4): imagen 1:1 sobre contenedor tonal, nombre
+ * a 2 líneas, precio grande con cifras tabulares y control de carrito. Sin
+ * categoría, sin marca, sin borde — la jerarquía la hacen el tono y el tamaño.
+ */
 @Composable
-fun ProductoCard(p: ProductEntity, onClick: () -> Unit) {
+fun RenglonProducto(
+    producto: ProductEntity,
+    cantidad: Int,
+    esFavorito: Boolean,
+    onCantidad: (Int) -> Unit,
+    onFavorito: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column {
-            AsyncImage(
-                model = p.imagenUrl ?: p.imagenGrandeUrl,
-                contentDescription = p.nombre,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().height(110.dp).padding(8.dp),
-            )
-            Text(
-                text = p.nombre,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
-            )
-            Spacer(Modifier.height(4.dp))
-            Row(
-                Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(AltoImagenTarjeta)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             ) {
-                val (precio, moneda) = p.precioMostrado()
-                PriceText(precio, prefix = moneda, style = MaterialTheme.typography.titleMedium)
-                DeltaBadge(p.precioCec, p.precioAnteriorCec) // CEC↔CEC: misma moneda
-            }
-            if (p.categoria != null) {
-                Text(
-                    text = p.categoria.replaceFirstChar { it.uppercase() },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 10.dp, bottom = 10.dp),
+                AsyncImage(
+                    model = producto.imagenUrl ?: producto.imagenGrandeUrl,
+                    contentDescription = null, // el nombre ya está en texto: no duplicar para el lector
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().padding(Espacio.s),
+                )
+                IconoFavorito(
+                    activo = esFavorito,
+                    onClick = onFavorito,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(Espacio.xs),
                 )
             }
+            Column(Modifier.padding(Espacio.s)) {
+                Text(
+                    text = formatearNombreProducto(producto.nombre),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                )
+                Spacer(Modifier.height(Espacio.minimo))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    val (precio, moneda) = producto.precioMostrado()
+                    PriceText(
+                        valor = precio,
+                        prefix = moneda,
+                        color = LocalColoresPrecio.current.acento,
+                    )
+                    ControlCarrito(
+                        cantidad = cantidad,
+                        onCantidad = onCantidad,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Corazón del primitivo: 40dp de área táctil, icono 20dp, sin ruido visual. */
+@Composable
+private fun IconoFavorito(
+    activo: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier
+            .size(40.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (activo) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = if (activo) "Quitar de favoritos" else "Agregar a favoritos",
+            tint = if (activo) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+/**
+ * El control de carrito en el mismo lugar siempre (Baymard: consistencia entre
+ * ítems): botón "+" cuando no está en el carrito, stepper cuando sí. Cambiar
+ * de uno a otro es el mismo espacio, no un layout nuevo.
+ */
+@Composable
+private fun ControlCarrito(
+    cantidad: Int,
+    onCantidad: (Int) -> Unit,
+) {
+    if (cantidad > 0) {
+        Stepper(cantidad = cantidad, onCantidad = onCantidad)
+    } else {
+        FilledIconButton(
+            onClick = { onCantidad(1) },
+            modifier = Modifier.size(40.dp),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = "Agregar al carrito", modifier = Modifier.size(20.dp))
         }
     }
 }

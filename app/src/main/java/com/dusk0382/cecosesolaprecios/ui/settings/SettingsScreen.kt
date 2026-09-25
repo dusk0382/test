@@ -28,7 +28,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,10 +36,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.dusk0382.cecosesolaprecios.data.prefs.ThemeMode
-import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
 import com.dusk0382.cecosesolaprecios.ui.MainViewModel
+import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.formatFechaHora
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,41 +127,49 @@ fun SettingsScreen(
         },
     ) { insets ->
         Column(
-            Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState()).padding(16.dp),
+            Modifier
+                .fillMaxSize()
+                .padding(insets)
+                .verticalScroll(rememberScrollState())
+                .padding(Espacio.l),
         ) {
             Seccion("Datos")
-            Dato("Lista base (mirror)", estado.fechaRepo ?: "nunca")
-            Dato(
+            FilaDato("Lista base (mirror)", estado.fechaRepo ?: "nunca")
+            FilaDato(
                 "Enriquecido (oficial)",
                 estado.milisApi?.let(::formatFechaHora) ?: "nunca",
             )
             estado.tasaVed?.let { tasa ->
-                Dato("Tasa oficial", "1 USD = Bs ${formatBs(tasa)}")
+                FilaDato("Tasa oficial", "1 USD = Bs ${formatBs(tasa)}")
             }
             if (estado.ferias.isNotEmpty()) {
-                Dato("Ferias", estado.ferias.joinToString(", "))
+                FilaDato("Ferias", estado.ferias.joinToString(", "))
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Espacio.s))
             Button(onClick = vm::verificar, enabled = !estado.verificando) {
                 if (estado.verificando) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Espacio.s))
                 }
                 Text(if (estado.verificando) "Verificando…" else "Verificar datos")
             }
             estado.mensaje?.let {
-                Spacer(Modifier.height(8.dp))
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(Espacio.s))
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(Espacio.xl))
             HorizontalDivider()
             Seccion("Apariencia")
 
             Text("Tema", style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(Espacio.xs))
+            Row(horizontalArrangement = Arrangement.spacedBy(Espacio.s)) {
                 ThemeMode.entries.forEach { modo ->
                     FilterChip(
                         selected = themeMode == modo,
@@ -180,11 +188,10 @@ fun SettingsScreen(
             }
 
             if (estado.tasaVed != null) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Espacio.l))
                 Row(
                     Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text("Mostrar precios en USD", style = MaterialTheme.typography.bodyMedium)
@@ -198,7 +205,7 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(Espacio.xl))
             HorizontalDivider()
             Seccion("Fuente")
             Text(
@@ -207,34 +214,17 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Espacio.xl))
         }
     }
 }
 
+/** Encabezado de sección: peso tipográfico, sin MAYÚSCULAS ni color (§3.3/§3.5). */
 @Composable
 private fun Seccion(titulo: String) {
     Text(
         titulo,
         style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(vertical = 10.dp),
+        modifier = Modifier.padding(vertical = Espacio.s + Espacio.xs),
     )
-}
-
-@Composable
-private fun Dato(label: String, valor: String) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(
-            valor,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.End,
-            modifier = Modifier.padding(start = 16.dp),
-        )
-    }
 }

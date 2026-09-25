@@ -15,23 +15,33 @@ interface ProductDao {
         """
         SELECT * FROM products
         WHERE (:query = '' OR nombreNormalizado LIKE '%' || :query || '%')
-          AND (:categoria IS NULL OR categoria = :categoria)
+          AND (:clase0 IS NULL OR clase = :clase0 OR clase = :clase1 OR clase = :clase2
+               OR clase = :clase3 OR clase = :clase4 OR clase = :clase5)
         ORDER BY
           CASE WHEN :orden = 'precio_asc' THEN precioBs END ASC,
           CASE WHEN :orden = 'precio_desc' THEN precioBs END DESC,
           CASE WHEN :orden = 'nombre' THEN nombreNormalizado END ASC
         """
     )
-    fun searchFlow(query: String, categoria: String?, orden: String): Flow<List<ProductEntity>>
+    fun searchFlow(
+        query: String,
+        clase0: String?,
+        clase1: String?,
+        clase2: String?,
+        clase3: String?,
+        clase4: String?,
+        clase5: String?,
+        orden: String,
+    ): Flow<List<ProductEntity>>
+
+    @Query("SELECT clase, COUNT(*) FROM products GROUP BY clase ORDER BY COUNT(*) DESC")
+    fun conteoPorClaseFlow(): Flow<List<ClaseConteo>>
 
     @Query("SELECT * FROM products WHERE localId = :id")
     fun byIdFlow(id: Long): Flow<ProductEntity?>
 
     @Query("SELECT * FROM products WHERE barcode = :barcode LIMIT 1")
     suspend fun byBarcode(barcode: String): ProductEntity?
-
-    @Query("SELECT DISTINCT categoria FROM products WHERE categoria IS NOT NULL ORDER BY categoria")
-    fun categoriasFlow(): Flow<List<String>>
 
     @Query("SELECT COUNT(*) FROM products")
     fun countFlow(): Flow<Int>
@@ -116,7 +126,22 @@ interface CartDao {
 
     @Query("SELECT COUNT(*) FROM cart_items")
     fun countFlow(): Flow<Int>
+
+    @Query("SELECT productId, quantity FROM cart_items")
+    fun quantitiesFlow(): Flow<List<CartCantidad>>
 }
+
+/** Fila de conteo por clase (para el selector de filtros con conteo por opción). */
+data class ClaseConteo(
+    val clase: String,
+    val total: Int,
+)
+
+/** Proyección productId → cantidad (mapa para steppers de tarjeta). */
+data class CartCantidad(
+    val productId: Long,
+    val quantity: Int,
+)
 
 data class CartLine(
     val productId: Long,

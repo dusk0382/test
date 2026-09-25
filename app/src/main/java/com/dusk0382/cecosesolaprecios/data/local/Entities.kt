@@ -19,6 +19,10 @@ data class ProductEntity(
 
     val nombre: String,
     val nombreNormalizado: String,
+    /** Rubro derivado del nombre (dominio/Rubros.kt), no el tag de la API.
+     *  Se calcula al insertar, nunca en la UI: así la grilla filtra por columna
+     *  indexable en vez de clasificar 527 filas por recomposición. */
+    val clase: String = "Otros",
     val precioBs: Double,
     val imagenUrl: String? = null,
 

@@ -35,6 +35,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.dusk0382.cecosesolaprecios.ui.common.DeltaBadge
+import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
+import com.dusk0382.cecosesolaprecios.ui.common.Stepper
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
 
@@ -78,7 +80,7 @@ fun DetailScreen(
                 model = prod.imagenGrandeUrl ?: prod.imagenUrl,
                 contentDescription = prod.nombre,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(220.dp).clip(RoundedCornerShape(16.dp)),
+                modifier = Modifier.size(220.dp).clip(MaterialTheme.shapes.large),
             )
             Spacer(Modifier.height(16.dp))
             Text(prod.nombre, style = MaterialTheme.typography.titleLarge)
@@ -115,23 +117,30 @@ fun DetailScreen(
                 Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                prod.marca?.let { Dato("Marca", it) }
-                prod.presentacion?.let { Dato("Presentación", it) }
-                prod.categoria?.let { Dato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
-                prod.barcode?.let { Dato("Código de barras", it) }
-                prod.updatedAt?.let { Dato("Actualizado", it.substringBefore('T')) }
+                // Datos reales solamente (DESIGN.md §3.9): presentación vacía
+                // ("item") y marca redundante con categoría no se pintan.
+                prod.marca?.takeUnless { it.isBlank() || it == prod.categoria }
+                    ?.let { FilaDato("Marca", it) }
+                prod.presentacion?.takeUnless { it.isBlank() || it.equals("item", ignoreCase = true) }
+                    ?.let { FilaDato("Presentación", it) }
+                prod.categoria?.let { FilaDato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
+                prod.barcode?.let { FilaDato("Código de barras", it) }
+                prod.updatedAt?.let { FilaDato("Actualizado", it.substringBefore('T')) }
             }
 
             Spacer(Modifier.height(24.dp))
             if (qty > 0) {
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    QtyButton("−") { vm.setQuantity(qty - 1) }
-                    Text("${qty} en el carrito", style = MaterialTheme.typography.bodyLarge)
-                    QtyButton("+") { vm.setQuantity(qty + 1) }
+                    Stepper(cantidad = qty, onCantidad = vm::setQuantity)
+                    Text(
+                        " en el carrito",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             } else {
                 Button(onClick = { vm.setQuantity(1) }, modifier = Modifier.fillMaxWidth()) {
@@ -142,17 +151,4 @@ fun DetailScreen(
     }
 }
 
-@Composable
-private fun Dato(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-        Text(value, style = MaterialTheme.typography.bodyMedium)
-    }
-}
 
-@Composable
-private fun QtyButton(text: String, onClick: () -> Unit) {
-    androidx.compose.material3.OutlinedButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
-        Text(text, style = MaterialTheme.typography.titleLarge)
-    }
-}

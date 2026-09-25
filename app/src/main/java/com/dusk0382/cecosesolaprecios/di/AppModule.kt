@@ -41,5 +41,9 @@ object AppModule {
     @Provides
     @Singleton
     fun database(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME).build()
+        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
+            // v1→v2: columna `clase` (rubro derivado). Una linea de SQL preserva
+            // favoritos y carrito; el valor default se recalcula al sincronizar.
+            .addMigrations(*AppDatabase.MIGRATIONS)
+            .build()
 }

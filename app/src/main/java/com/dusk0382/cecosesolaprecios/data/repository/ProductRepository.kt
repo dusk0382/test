@@ -6,6 +6,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.dusk0382.cecosesolaprecios.data.local.AppDatabase
 import com.dusk0382.cecosesolaprecios.data.local.CartLine
+import com.dusk0382.cecosesolaprecios.data.local.ClaseConteo
 import com.dusk0382.cecosesolaprecios.data.local.CartItemEntity
 import com.dusk0382.cecosesolaprecios.data.local.MetaEntity
 import com.dusk0382.cecosesolaprecios.data.local.FavoriteEntity
@@ -21,6 +22,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 
@@ -38,11 +40,26 @@ class ProductRepository @Inject constructor(
 
     // — lecturas (Room-first; la UI nunca toca la red) —
 
-    fun searchFlow(query: String, categoria: String?, orden: String): Flow<List<ProductEntity>> =
-        productDao.searchFlow(normalizarNombre(query), categoria, orden)
+    /**
+     * Búsqueda + filtro por hasta 6 clases (multi-selección OR). El DAO usa 6
+     * slots fijos en vez de `IN (...)` dinámico porque Room no acepta listas
+     * como parámetro; null = sin filtro en ese slot.
+     */
+    fun searchFlow(query: String, clases: List<String>, orden: String): Flow<List<ProductEntity>> =
+        productDao.searchFlow(
+            normalizarNombre(query),
+            clases.getOrNull(0),
+            clases.getOrNull(1),
+            clases.getOrNull(2),
+            clases.getOrNull(3),
+            clases.getOrNull(4),
+            clases.getOrNull(5),
+            orden,
+        )
+
+    fun conteoPorClaseFlow(): Flow<List<ClaseConteo>> = productDao.conteoPorClaseFlow()
 
     fun byIdFlow(id: Long): Flow<ProductEntity?> = productDao.byIdFlow(id)
-    fun categoriasFlow(): Flow<List<String>> = productDao.categoriasFlow()
     fun countFlow(): Flow<Int> = productDao.countFlow()
     suspend fun byBarcode(barcode: String): ProductEntity? =
         withContext(Dispatchers.IO) { productDao.byBarcode(barcode) }
@@ -71,6 +88,10 @@ class ProductRepository @Inject constructor(
     fun cartQuantityFlow(id: Long): Flow<Int?> = db.cartDao().quantityOfFlow(id)
 
     fun cartCountFlow(): Flow<Int> = db.cartDao().countFlow()
+
+    /** Mapa productId → cantidad para pintar steppers en tarjetas sin query por ítem. */
+    fun cartQuantitiesFlow(): Flow<Map<Long, Int>> = db.cartDao().quantitiesFlow()
+        .map { filas -> filas.associate { it.productId to it.quantity } }
 
     suspend fun setQuantity(productId: Long, quantity: Int) = withContext(Dispatchers.IO) {
         if (quantity <= 0) db.cartDao().remove(productId)

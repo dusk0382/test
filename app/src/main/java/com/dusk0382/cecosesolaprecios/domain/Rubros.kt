@@ -164,6 +164,15 @@ fun rubroDe(nombre: String, tags: List<String> = emptyList()): Rubro {
 }
 
 /**
+ * Etiqueta visible de un rubro: la mayoria no necesita tratamiento, pero `Otros`
+ * explica que es un cajon visible, no una equivocacion (DESIGN.md §7).
+ */
+fun Rubro.etiquetaVisible(): String = when (this) {
+    Rubro.OTROS -> "Otros"
+    else -> etiqueta
+}
+
+/**
  * Los nombres del mirror vienen mezclados: "ABONO LIQUIDO" junto a "aceite de oliva
  * extra virgen capri 250 cm3". Un nombre **enteramente** en mayúsculas se muestra en
  * sentence case; si viene en mixta no se toca, para no destrozar marcas ni siglas

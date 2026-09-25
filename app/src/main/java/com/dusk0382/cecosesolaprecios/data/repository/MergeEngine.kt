@@ -5,6 +5,7 @@ import com.dusk0382.cecosesolaprecios.data.remote.dto.PayloadOficial
 import com.dusk0382.cecosesolaprecios.data.remote.dto.PreciosRepoDto
 import com.dusk0382.cecosesolaprecios.data.remote.dto.activo
 import com.dusk0382.cecosesolaprecios.domain.normalizarNombre
+import com.dusk0382.cecosesolaprecios.domain.rubroDe
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -24,9 +25,13 @@ object MergeEngine {
     ): List<ProductEntity> = dto.productos.mapNotNull { p ->
         val normal = normalizarNombre(p.nombre)
         val vieja = existentesPorRepoId[p.id] ?: existentesPorNombre[normal]
+        // La clase (rubro) se recalcula siempre: el nombre manda sobre el tag
+        // heredado de la API, que es mas especifico pero menos confiable.
+        val clase = rubroDe(p.nombre).name
         vieja?.copy(
             nombre = p.nombre,
             nombreNormalizado = normal,
+            clase = clase,
             precioBs = p.precio,
             imagenUrl = p.imagen ?: vieja.imagenUrl,
             repoId = p.id,
@@ -35,6 +40,7 @@ object MergeEngine {
             repoId = p.id,
             nombre = p.nombre,
             nombreNormalizado = normal,
+            clase = clase,
             precioBs = p.precio,
             imagenUrl = p.imagen,
             fuente = "repo",
@@ -79,6 +85,7 @@ object MergeEngine {
             vieja?.copy(
                 nombre = e.nombre,
                 nombreNormalizado = normalizarNombre(e.nombre),
+                clase = rubroDe(e.nombre, listOfNotNull(e.categoria)).name,
                 precioBs = vieja.precioBs, // el precio visual sigue siendo la fuente canónica del repo
                 apiId = e.apiId,
                 categoria = e.categoria,
@@ -94,6 +101,7 @@ object MergeEngine {
                 apiId = e.apiId,
                 nombre = e.nombre,
                 nombreNormalizado = normalizarNombre(e.nombre),
+                clase = rubroDe(e.nombre, listOfNotNull(e.categoria)).name,
                 precioBs = e.precioCec * (tasaVedPorCec ?: 1.0),
                 imagenUrl = e.imagen,
                 imagenGrandeUrl = e.imagen,
