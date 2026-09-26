@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
             CecosesolaTheme(darkTheme = oscuro) {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     CompositionLocalProvider(LocalUsdPrecio provides usd) {
-                        AppNav()
+                        AppNav(mainVm)
                     }
                 }
             }
@@ -96,7 +96,14 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun AppNav() {
+/**
+ * `mainVm` se pasa desde `setContent` a propósito: Ajustes lo necesita, y si lo
+ * pidiera con `hiltViewModel()` resolvería al NavBackStackEntry del AJUSTES en vez
+ * de a la Activity, creando una segunda instancia con otros dos suscriptores de
+ * DataStore. Con `stateIn(Eagerly)`, eso hacía que la primera composición de
+ * Ajustes mostrara los valores por defecto y saltara al guardado.
+ */
+private fun AppNav(mainVm: MainViewModel) {
     val navController = rememberNavController()
     val destinos = listOf(Dest.Catalogo, Dest.Favoritos, Dest.Carrito)
     val backStack by navController.currentBackStackEntryAsState()
