@@ -61,6 +61,10 @@ chk "sin .dp de espaciado fuera de los tokens" \
 chk "sin elevation distinta de 0 en tarjetas" "cardElevation\([^)]*[1-9][0-9]*\.dp" \
     $UI_FILES 2>/dev/null || true
 
+# Coherencia de imports: aquí no se compila, así que un paquete equivocado
+# cuesta un ciclo entero de CI.
+python3 tools/imports.py || fail=1
+
 # Accesibilidad y precio: checks que necesitan mirar varias líneas a la vez.
 # Van en Python porque grep no puede seguir una llamada a Icon( abierta y
 # buscar el contentDescription de las líneas siguientes.

@@ -215,14 +215,19 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
 @Composable
 private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuitar: () -> Unit) {
     // La fila se borra desde `onQuitar` en el gesto, no desde confirmValueChange:
-    // borrrar ahí competition con la animación de settle y el renglón desaparecía
+    // borrar ahí compite con la animación de settle y el renglón desaparecía
     // a media transición. Además hay un camino sin gesto: el "−" del stepper en
     // cantidad 1 quita la línea, que es lo que necesita un lector de pantalla.
     var descartada by remember { mutableStateOf(false) }
     val dismissState = rememberSwipeToDismissBoxState(
         positionalThreshold = { it * 0.4f },
         confirmValueChange = { valor ->
-            if (valor == SwipeToDismissBoxValue.EndToStart) descartada = true else false
+            if (valor == SwipeToDismissBoxValue.EndToStart) {
+                descartada = true
+                true
+            } else {
+                false
+            }
         },
     )
     if (descartada) {

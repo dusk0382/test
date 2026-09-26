@@ -45,6 +45,14 @@ jobs:
               "keyPassword=$KEY_PASSWORD" > keystore.properties
           fi
 
+      # No se puede compilar Android en el entorno de desarrollo (el SDK es
+      # x86-64 y el host es aarch64), así que cada error de import cuesta un
+      # ciclo completo de CI. Esto atrapa los tres que se colaron en el último
+      # commit: un subpaquete equivocado, coil vs coil3 y un import que quedó
+      # atrás al mover código de archivo.
+      - name: Coherencia de imports
+        run: python3 tools/imports.py
+
       # DESIGN.md §6.4 lo llama "puerta determinista", pero hasta ahora nadie lo
       # corría: la lista de reglas prohibidas era un documento, no un check. Va
       # antes de los tests para que un tell se vea en el PR sin instalar el APK.
