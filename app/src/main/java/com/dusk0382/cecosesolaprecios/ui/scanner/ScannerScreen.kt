@@ -1,6 +1,8 @@
 package com.dusk0382.cecosesolaprecios.ui.scanner
 
 import android.Manifest
+import android.app.Activity
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -144,6 +146,10 @@ fun ScannerScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    // `shouldShowRequestPermissionRationale` pide un Activity, y LocalContext
+    // devuelve Context aunque en la practica sea la Activity. Sin desenvolver el
+    // ContextWrapper, el chequeo de denegacion permanente no compila.
+    val activity = remember(context) { context.findActivity() }
 
     fun permisoConcedido() =
         ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -154,7 +160,7 @@ fun ScannerScreen(
     // quedó denegado de forma permanente: volver a pedirlo no hace nada y hay que
     // mandar a Ajustes del sistema.
     var yaPedido by rememberSaveable { mutableStateOf(false) }
-    varNegadoPermanente by remember { mutableStateOf(false) }
+    var denegadoPermanente by remember { mutableStateOf(false) }
 
     val lanzadorPermiso = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -162,10 +168,14 @@ fun ScannerScreen(
         permiso = concedido
         yaPedido = true
         if (!concedido) {
-            denegadoPermanente = !ActivityCompat.shouldShowRequestPermissionRationale(
-                context,
-                Manifest.permission.CAMERA,
-            )
+            // `activity` puede ser null si la pantalla vive en un Service o un
+            // Context de pruebas; sin Activity no se puede preguntar, y se asume
+            // que NO es permanente para que al menos se pueda volver a pedir.
+            denegadoPermanente = activity != null &&
+                !ActivityCompat.shouldShowRequestPermissionRationale(
+                    activity,
+                    Manifest.permission.CAMERA,
+                )
         }
     }
 
@@ -273,7 +283,10 @@ fun ScannerScreen(
 }
 
 @Composable
-private fun CameraAnalyzer(onCode: (String?) -> Unit) {
+private fun CameraAnalyzer(
+    onCode: (String?) -> Unit,
+    onEstado: (EstadoCamera) -> Unit,
+) {
     val context = LocalContext.current
     val previewView = remember { PreviewView(context) }
 
@@ -300,7 +313,7 @@ private fun CameraAnalyzer(onCode: (String?) -> Unit) {
     AndroidView(
         factory = { previewView },
         modifier = Modifier.fillMaxSize(),
-        update = { view -> bindCamera(view, scanner, executor, onCode) },
+        update = { view -> bindCamera(view, scanner, executor, onCode, onEstado) },
     )
 }
 
@@ -435,3 +448,12 @@ private var PreviewView.isVinculado: Boolean
         this.tag = value
     }
 
+/**
+ * Desenvuelve un [Context] hasta encontrar la Activity que lo contiene.
+ * `LocalContext.current` en una pantalla es un ContextWrapper, no la Activity.
+ */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}

@@ -5,6 +5,7 @@ import com.dusk0382.cecosesolaprecios.data.remote.dto.PayloadOficial
 import com.dusk0382.cecosesolaprecios.data.remote.dto.PreciosRepoDto
 import com.dusk0382.cecosesolaprecios.data.remote.dto.activo
 import com.dusk0382.cecosesolaprecios.data.remote.dto.toDoubleOrNull
+import com.dusk0382.cecosesolaprecios.domain.aHttps
 import com.dusk0382.cecosesolaprecios.domain.normalizarNombre
 import com.dusk0382.cecosesolaprecios.domain.rubroDe
 import kotlinx.serialization.json.Json
@@ -61,7 +62,7 @@ object MergeEngine {
                 nombreNormalizado = normal,
                 clase = clase,
                 precioBs = p.precio,
-                imagenUrl = p.imagen ?: vieja.imagenUrl,
+                imagenUrl = p.imagen?.let(::aHttps) ?: vieja.imagenUrl,
                 repoId = p.id,
                 fuente = if (vieja.apiId != null) "ambas" else "repo",
             ) ?: ProductEntity(
@@ -70,7 +71,7 @@ object MergeEngine {
                 nombreNormalizado = normal,
                 clase = clase,
                 precioBs = p.precio,
-                imagenUrl = p.imagen,
+                imagenUrl = p.imagen?.let(::aHttps),
                 fuente = "repo",
             )
         }
@@ -95,7 +96,10 @@ object MergeEngine {
                     marca = p.brand?.takeIf { it.isNotBlank() },
                     presentacion = p.presentation?.trim()?.takeIf { it.isNotEmpty() },
                     barcode = p.barcode?.takeIf { it.isNotBlank() },
-                    imagen = p.images?.firstOrNull(),
+                    // La API oficial sirve las imágenes en http. Se sube el esquema al
+                    // guardar: los dos hosts de Cecosesola responden por https, y así la app
+                    // no necesita cleartext (ver domain/Urls.kt).
+                    imagen = p.images?.firstOrNull()?.let(::aHttps),
                     updatedAt = p.updatedAt,
                 )
             }?.toList() ?: emptyList()

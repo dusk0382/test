@@ -1,8 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Ya NO se permite tráfico cleartext. No es una decisión de estilo: es lo que
+    hace que las imágenes de la API oficial carguen.
+
+    La API oficial entrega sus imágenes en http://, y el `network-security-config`
+    solo allowlistaba kana.imk.cecosesola.coop. Medido contra el fixture real: 453
+    de 527 referencias de imagen son http repartidas en ~55 hosts. Con un solo host
+    permitido, 146 imágenes (el 28%) no cargaban nunca, y la tarjeta se quedaba con
+    el contenedor tonal vacío sin decir nada.
+
+    La corrección fue subir el esquema al GUARDAR la URL (domain/Urls.kt), no
+    ampliar la lista: los dos hosts de Cecosesola responden por https (200) y los
+    http solo redirigen (308). Así que:
+
+    1. Las 453 imágenes cargan, no 307.
+    2. Se cierra un agujero real. Con cleartext permitido, un atacante en el
+       camino podía inyectar las imágenes y —porque el host del GraphQL es el
+       mismo— también el payload de precios entero. Eso era un riesgo abierto
+       desde el primer commit.
+
+    Si algún día la API trae una URL http de un host que no soporta https, la
+    imagen no va a cargar. Es el comportamiento correcto: es preferible una
+    imagen rota a un precio inyectado.
+-->
 <network-security-config>
-    <!-- Los productos de la API oficial referencian imágenes servidas por http://
-         solo en ese host; todo lo demás (raw.githubusercontent, graphql) es https. -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">kana.imk.cecosesola.coop</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="false" />
 </network-security-config>
