@@ -270,18 +270,21 @@ private fun etiquetaClase(nombre: String): String =
 /**
  * Buscador.
  *
- * El placeholder usa el parámetro `placeholder` de `BasicTextField` y no un
- * `Text` apilado en un `Box`. La versión anterior apilaba un `Text` encima del
- * campo dentro del mismo `Box`, pero el campo llevaba
+ * El placeholder va por `decorationBox` y no como un `Text` apilado en un `Box`
+ * al lado del campo. La versión anterior lo apilaba así, pero el campo llevaba
  * `padding(horizontal = 8.dp)` y el `Text` no: el placeholder se dibujaba 8 dp a
  * la izquierda de donde aparecía el texto real, y al teclear la primera letra
- * todo el campo saltaba a la derecha. El `placeholder` de `BasicTextField` se
- * compone en el origen del texto por construcción, así que no se puede
- * desalinear.
+ * todo el campo saltaba a la derecha.
+ *
+ * Por qué `decorationBox` y no el parámetro `placeholder` de `BasicTextField`:
+ * ese parámetro solo existe en la sobrecarga que recibe un `TextFieldValue`, que
+ * es `ExperimentalFoundationApi`. La sobrecarga estable con `String` se resuelve
+ * con `decorationBox`, y ahí el placeholder y el campo se componen **dentro del
+ * mismo layout y del mismo padding**, así que no se pueden desalinear.
  *
  * También se cablea `ImeAction.Search` con su `KeyboardActions`: declarar la
- * acción del teclado sin implementar su `onSearch` deja una tecla visible que
- * no hace nada, que es peor que no tenerla.
+ * acción del teclado sin implementar `onSearch` deja una tecla visible que no
+ * hace nada, que es peor que no tenerla.
  */
 @Composable
 private fun CampoBusqueda(
@@ -309,29 +312,32 @@ private fun CampoBusqueda(
             onValueChange = onChange,
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-            placeholder = {
-                Text(
-                    text = "Buscar producto o código de barras",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    // El campo ya se anuncia con `contentDescription`. Si el
-                    // placeholder dejara su semántica, TalkBack leería lo mismo dos
-                    // veces seguidas: "Buscar producto o código de barras, campo de
-                    // texto, Buscar producto o código de barras". El texto se ve,
-                    // pero no se oye: para eso está la etiqueta del campo.
-                    modifier = Modifier.clearAndSetSemantics { },
-                )
-            },
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
-                    // Bajar el teclado y devolver el foco a la grilla: la búsqueda
-                    // ya se consultó, seguir con el teclado abierto solo tapa los
-                    // resultados que el usuario vino a ver.
+                    // Bajar el teclado: la búsqueda ya se consultó, y tenerlo
+                    // abierto solo tapa los resultados que el usuario vino a ver.
                     foco.clearFocus()
                 },
             ),
+            decorationBox = { campo ->
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                    if (!hayTexto) {
+                        Text(
+                            text = "Buscar producto o código de barras",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            // El campo ya se anuncia con `contentDescription`. Si el
+                            // placeholder dejara su semántica, TalkBack leería lo
+                            // mismo dos veces: "Buscar producto…, campo de texto,
+                            // Buscar producto…". Se ve, pero no se oye.
+                            modifier = Modifier.clearAndSetSemantics { },
+                        )
+                    }
+                    campo()
+                }
+            },
             // `BasicTextField` no expone `label`: sin esto TalkBack anuncia
             // "campo de texto" y nada más, sin decir de qué.
             modifier = Modifier

@@ -166,9 +166,17 @@ código está como está:
    pendiente se aplique al re-adjuntarse.
 2. **El placeholder desalineado.** Un `Text` apilado en un `Box` junto al
    `BasicTextField` no se alinea con el texto si el campo tiene `padding` y el
-   `Text` no, y al teclear la primera letra todo salta. Usar el parámetro
-   `placeholder` de `BasicTextField`, que se compone en el origen del texto por
-   construcción.
+   `Text` no, y al teclear la primera letra todo salta.
+
+   Se arregla con `decorationBox`, no con el parámetro `placeholder` de
+   `BasicTextField`: **`placeholder` no existe en la sobrecarga que recibe un
+   `String`**, solo en la de `TextFieldValue`, que es `ExperimentalFoundationApi`.
+   (Verificado contra el fuente de androidx: la sobrecarga `value: String` expone
+   `singleLine`, `keyboardOptions`, `keyboardActions` y `decorationBox`, y ningún
+   `placeholder`.) En `decorationBox` el placeholder y el campo se componen
+   dentro del mismo layout y del mismo padding, así que no se pueden desalinear.
+   La lambda es `@Composable (innerTextField: @Composable () -> Unit) -> Unit` y
+   hay que llamar `innerTextField()` exactamente una vez.
 3. **La acción de teclado que no hace nada.** `ImeAction.Search` sin su
    `KeyboardActions` deja una tecla visible que no ocurre para nada. Peor que no
    tenerla.
