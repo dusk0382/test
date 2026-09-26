@@ -97,10 +97,8 @@ class TemaContrasteTest {
 
     @Test
     fun `el precio nunca usa el naranja de marca como color de texto`() {
-        // El naranja de marca #FD4902 es relleno, no texto (DESIGN.md §3.11). Como
-        // texto sobre superficie da 3.26:1, y sobre el contenedor de la imagen
-        // 2.75:1: ninguno de los dos pasa AA. El precio se pinta con
-        // LocalColoresPrecio.acento (#B93300 en claro, 5.66:1).
+        // El naranja de marca #FD4902 es relleno, no texto (DESIGN.md §3.11). El
+        // precio se pinta con LocalColoresPrecio.acento (#B93300 en claro, 5.66:1).
         //
         // Estos dos pares no estaban en el test y por eso la app pudo llevar meses
         // con el precio del detalle y del carrito en 3.26:1 con el CI en verde: la
@@ -112,18 +110,32 @@ class TemaContrasteTest {
         verificar("acento de precio sobre surface", precio, superficie, AA_TEXTO)
         verificar("acento de precio sobre surfaceContainerHighest", precio, mayor, AA_TEXTO)
 
-        // El naranja de marca sobre superficie no llega ni a texto grande (3:1).
+        // Sobre superficie, el naranja de marca da 3.26:1: **alcanza** el 3:1 de
+        // texto grande pero **falla** el 4.5:1 de cuerpo. Por eso la regla no puede
+        // ser "nunca uses primary como texto" (un titular gigante sí lo aguantaría)
+        // sino "primary no es color de texto": depende del tamaño, y eso es
+        // exactamente la clase de detalle que se pierde cuando el color se elige a
+        // ojo y no por rol.
         assertTrue(
             "el naranja de marca como texto de precio da " +
                 "${"%.2f".format(ratioContraste(Paleta.NaranjaMarca, superficie))}:1 sobre " +
-                "surface, por debajo del 3:1 de texto grande: usá LocalColoresPrecio.acento",
-            ratioContraste(Paleta.NaranjaMarca, superficie) < AA_GRANDE,
+                "surface: no llega al 4.5:1 de cuerpo, usá LocalColoresPrecio.acento",
+            ratioContraste(Paleta.NaranjaMarca, superficie) < AA_TEXTO,
         )
+
+        // Sobre el contenedor de la imagen es peor: 2.75:1 no llega ni al 3:1 de un
+        // icono, así que el corazón de favorito con `primary` era casi invisible.
         assertTrue(
             "el naranja de marca sobre el contenedor de la imagen da " +
                 "${"%.2f".format(ratioContraste(Paleta.NaranjaMarca, mayor))}:1: " +
                 "no alcanza ni para un icono de 20 dp",
             ratioContraste(Paleta.NaranjaMarca, mayor) < AA_GRANDE,
+        )
+
+        // Y el token que sí se usa tiene que cumplir holgadamente en los dos fondos.
+        assertTrue(
+            "el acento de precio debería ir sobrado sobre superficie, no justo",
+            ratioContraste(precio, superficie) > 5.0,
         )
     }
 
