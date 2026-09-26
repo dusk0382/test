@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -22,11 +23,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -39,6 +42,7 @@ import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
 import com.dusk0382.cecosesolaprecios.ui.common.PriceText
 import com.dusk0382.cecosesolaprecios.ui.common.Stepper
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
+import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 import com.dusk0382.cecosesolaprecios.ui.theme.PrecioDetalle
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
@@ -49,14 +53,34 @@ fun DetailScreen(
     onBack: () -> Unit,
     vm: DetailViewModel = hiltViewModel(),
 ) {
-    val p by vm.producto.collectAsStateWithLifecycle()
+    val estado by vm.estado.collectAsStateWithLifecycle()
+    val p = (estado as? EstadoDetalle.Listo)?.producto
     val fav by vm.esFavorito.collectAsStateWithLifecycle()
     val qty by vm.cantidadEnCarrito.collectAsStateWithLifecycle()
 
     Scaffold(
+        // El Scaffold de MainActivity ya aplicó los insets del sistema; sin esto
+        // el status bar se suma dos veces y el contenido queda un status bar más abajo.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text(p?.nombre?.take(30) ?: "Producto", maxLines = 1) },
+                // Por lo mismo: el app bar no debe volver a reservar la barra de estado.
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                // Sin `take(30)`: cortaba el nombre a mitad de palabra y con
+                // `maxLines = 1` sin `overflow` el texto se recortaba a media
+                // palabra sin ninguna señal de que siguiera. `maxLines` solo sin
+                // `overflow` usa Clip, que es indistinguible de un bug de render.
+                // Esto ya se intentó arreglar una vez y el cambio no aplicó: el
+                // texto era posicional, no `text = `, así que el replace no
+                // encontró nada. Con assert esta vez.
+                title = {
+                    Text(
+                        text = p?.let { formatearNombreProducto(it.nombre) }.orEmpty(),
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás") }
                 },
@@ -64,8 +88,13 @@ fun DetailScreen(
                     IconButton({ vm.toggleFavorite() }) {
                         Icon(
                             if (fav) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            "Favorito",
-                            tint = if (fav) MaterialTheme.colorScheme.primary
+                            // La etiqueta dice qué hace el botón, no qué es. Con
+                            // "Favorito" fijo, quien usa TalkBack oía lo mismo
+                            // estando o no el producto en favoritos, igual que en
+                            // la tarjeta.
+                            contentDescription = if (fav) "Quitar de favoritos"
+                            else "Agregar a favoritos",
+                            tint = if (fav) LocalColoresPrecio.current.acento
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -73,7 +102,27 @@ fun DetailScreen(
             )
         },
     ) { insets ->
-        val prod = p ?: return@Scaffold
+        // Antes: `p ?: return@Scaffold`, que pintaba absolutamente nada. Ahora
+        // cada caso dice qué está pasando.
+        val prod = p
+        if (prod == null) {
+            Column(
+                Modifier.fillMaxSize().padding(insets),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (estado is EstadoDetalle.Cargando) {
+                    CircularProgressIndicator()
+                } else {
+                    Text(
+                        "Este producto ya no está en el catálogo.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            return@Scaffold
+        }
         Column(
             Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState())
                 .padding(Espacio.l),
@@ -81,7 +130,10 @@ fun DetailScreen(
         ) {
             AsyncImage(
                 model = prod.imagenGrandeUrl ?: prod.imagenUrl,
-                contentDescription = prod.nombre,
+                // El nombre está dos líneas más abajo como texto. Con descripción
+                // en la imagen, TalkBack lo anuncia dos veces seguidas, como dos
+                // elementos distintos. En la tarjeta ya es null por esto.
+                contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.size(220.dp).clip(MaterialTheme.shapes.large),
             )

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -57,6 +58,18 @@ data class EstadoDatos(
     val ferias: List<String> = emptyList(),
     val verificando: Boolean = false,
     val mensaje: String? = null,
+    /**
+     * false mientras `recargar()` no terminó su primera vuelta.
+     *
+     * Antes el valor inicial de los otros campos era `null`, y `null` se pintaba
+     * como "nunca": en la **primera composición** —antes de que las cuatro
+     * lecturas asíncronas de Room terminen— la pantalla decía "Lista base
+     * (mirror) — nunca" y "Enriquecido (oficial) — nunca" para datos que sí
+     * existían, y ocultaba el interruptor de USD por `tasaVed == null`. Un
+     * usuario que tocara "Verificar datos" en ese frame recibía un mensaje
+     * engañoso. "Todavía no sé" no es "nunca": son dos estados distintos.
+     */
+    val cargado: Boolean = false,
 )
 
 @HiltViewModel
@@ -70,12 +83,17 @@ class SettingsViewModel @Inject constructor(
     init { recargar() }
 
     private fun recargar() = viewModelScope.launch {
+        val fechaRepo = repo.ultimaFechaRepo()
+        val milisApi = repo.ultimaFechaApi()?.toLongOrNull()
+        val tasaVed = repo.tasaOficial()
+        val ferias = repo.ferias()
         _estado.update {
             it.copy(
-                fechaRepo = repo.ultimaFechaRepo(),
-                milisApi = repo.ultimaFechaApi()?.toLongOrNull(),
-                tasaVed = repo.tasaOficial(),
-                ferias = repo.ferias(),
+                fechaRepo = fechaRepo,
+                milisApi = milisApi,
+                tasaVed = tasaVed,
+                ferias = ferias,
+                cargado = true,
             )
         }
     }
@@ -129,8 +147,10 @@ fun SettingsScreen(
     val usd by mainVm.usd.collectAsStateWithLifecycle()
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text("Ajustes") },
                 navigationIcon = {
                     IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás") }
@@ -146,13 +166,20 @@ fun SettingsScreen(
                 .padding(Espacio.l),
         ) {
             Seccion("Datos")
-            FilaDato("Lista base (mirror)", estado.fechaRepo ?: "nunca")
+            val pendiente = if (estado.cargado) "nunca" else "leyendo…"
+            FilaDato("Lista base (mirror)", estado.fechaRepo ?: pendiente)
             FilaDato(
                 "Enriquecido (oficial)",
-                estado.milisApi?.let(::formatFechaHora) ?: "nunca",
+                estado.milisApi?.let(::formatFechaHora) ?: pendiente,
             )
             estado.tasaVed?.let { tasa ->
-                FilaDato("Tasa oficial", "1 USD = Bs ${formatBs(tasa)}")
+                // La etiqueta decía "1 USD = Bs …", y el número no es eso. Es lo
+                // que vale **una unidad del precio solidario (CEC)** en bolívares:
+                // el payload viene con `officialRate.base == "CEC"` y su
+                // `forSales` es [{USD,1},{VED,832.49}], o sea 832,49 es Bs por
+                // CEC, no por dólar. El dólar real anda por ~36, así que la
+                // etiqueta vieja mentía por un factor de 23.
+                FilaDato("Tasa del precio solidario", "1 CEC = Bs ${formatBs(tasa)}")
             }
             if (estado.ferias.isNotEmpty()) {
                 FilaDato("Ferias", estado.ferias.joinToString(", "))

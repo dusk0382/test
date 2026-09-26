@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -125,7 +126,9 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
     val mostrarTotalUsd = usd && totalCec != null
     val totalTexto = if (mostrarTotalUsd) "USD ${formatBs(totalCec!!)}" else "Bs ${formatBs(totalBs)}"
 
-    Scaffold { insets ->
+    Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    ) { insets ->
         Column(Modifier.fillMaxSize().padding(insets)) {
             if (lineas.isEmpty()) {
                 Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {

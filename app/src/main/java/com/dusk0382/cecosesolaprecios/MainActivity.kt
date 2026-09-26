@@ -209,7 +209,19 @@ private fun AppNav() {
                     DetailScreen(onBack = { navController.popBackStack() })
                 }
                 composable(Routes.AJUSTES) {
-                    SettingsScreen(onBack = { navController.popBackStack() })
+                    // Se pasa el MainViewModel de la Activity en vez de dejar que
+                    // la pantalla pida el suyo con hiltViewModel(): dentro de un
+                    // composable() el owner es el NavBackStackEntry, no la
+                    // Activity, así que eso creaba una **segunda** instancia con
+                    // otros dos suscriptores de DataStore. Con dos instancias y
+                    // `stateIn(Eagerly)`, la primera composición de Ajustes
+                    // arrancaba con los valores por defecto y saltaba al valor
+                    // guardado: con tema oscuro y USD activados se veía el
+                    // parpadeo de "Sistema" y el interruptor apagado.
+                    SettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        mainVm = mainVm,
+                    )
                 }
                 composable(Routes.ESCANER) {
                     ScannerScreen(
