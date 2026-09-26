@@ -40,6 +40,9 @@ commit en rama  →  push  →  PR a main  →  job build (1.4 min)  →  iterar
 - `concurrency: cancel-in-progress: true` — **un push mata el run en vuelo**.
   Si empujás dos veces seguidas, no obtenés señal de ninguna de las dos. Esperá
   el resultado antes de empujar de nuevo.
+- Medido: el job `build` tarda **1.4-4.8 min** según el tamaño de Gradle (frío vs
+  incremental) y el emulador **3.1 min**. No esperes 90 s y des por hecho que se
+  colgó.
 
 Por eso se trabaja en rama y se mergea una vez: `main` es de donde el usuario
 instala, y una racha de pushes con el mismo bug dejó cinco commits consecutivos
@@ -78,11 +81,42 @@ Cuatro archivos, JVM puro, sin instrumentación. Fixtures reales en
 |---|---|
 | `ParserTest` | el parseo no se desvía del payload real (anti-drift) |
 | `MergeTest` | la fusión de las dos fuentes |
+| `FormatoNombreTest` | sentence case en MAYÚSCULAS, y que no destroce lo que ya viene en mixta |
 | `RubrosTest` | la clasificación cubre ≥95 % del catálogo real, ningún rubro se lo come todo |
 | `TemaContrasteTest` | WCAG AA en claro y oscuro, sin roles sin definir |
 
 Correr: `./gradlew :app:testDebugUnitTest` (necesita red la primera vez; en CI
 corre siempre).
+
+## Los otros dos checks, antes de los tests
+
+Ambos están en la CI y los dos nacieron de un error real:
+
+- **`bash tools/ui_lint.sh`** — tells de diseño (§3 de `DESIGN.md`): emojis,
+  `BorderStroke`, MAYÚSCULAS de UI, hex fuera del tema, `.dp` de espaciado fuera
+  de los tokens, elevación, `Icon` sin etiqueta, precio pintado con un `Text`
+  propio, áreas táctiles bajo 48 dp. Llama a `tools/ui_checks.py`, que hace lo
+  que grep no puede: seguir una llamada a `Icon(` abierta y buscar el
+  `contentDescription` de las líneas siguientes.
+- **`python3 tools/imports.py`** — paquetes mal escritos, símbolos del subpaquete
+  equivocado, símbolos usados sin importar, imports muertos. Existe por la razón
+  de este documento: **aquí no se compila**, así que un error de import cuesta un
+  ciclo entero. Los que más salieron: `androidx.compose.ui.text.TextAlign` (es
+  `.text.style`), `coil.compose` (es `coil3.compose`), y un import que se queda
+  atrás al mover código de archivo.
+
+### Verificá un checker antes de confiar en su verde
+
+Un check que no falla nunca también pasa. Antes de dar por bueno un checker
+nuevo, rompé a propósito los casos que dice cubrir y confirmá que los detecta; y
+después confirmá que el código real está limpio. Si un checker marca algo que
+mirando el código está bien, el bug está en el checker.
+
+Dos bugs reales encontrados así: el filtro de `Icon` se comía todas las llamadas
+que tenían `Icons.` dentro (casi todas, porque el ícono se pasa como argumento), y
+el de símbolos sin importar contaba como "usado" un símbolo nombrado en un
+comentario.
+
 
 ## La disciplina que más caro salió
 
