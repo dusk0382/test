@@ -1,5 +1,6 @@
 package com.dusk0382.cecosesolaprecios
 
+import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 import com.dusk0382.cecosesolaprecios.data.repository.MergeEngine
 import com.dusk0382.cecosesolaprecios.data.remote.dto.GraphqlEnvelope
 import com.dusk0382.cecosesolaprecios.data.remote.dto.PayloadOficial
@@ -60,10 +61,54 @@ class ParserTest {
         assertEquals("7591082000307", galleta.barcode)
         assertEquals("Puig", galleta.marca)
         assertEquals(1.6815801, galleta.precioCec, 0.01)
+        // Precio anterior: vive en oldPrice.priceBase.amount (un nivel más
+        // adentro). Valor tomado del fixture, no inventado.
+        assertEquals(1.639658870012853, galleta.precioAnteriorCec!!, 0.001)
 
         val tasa = MergeEngine.tasaVed(payload)
         assertEquals(832.49, tasa!!, 0.01)
         assertEquals(4, MergeEngine.nombresBranches(payload, json).size)
+    }
+
+    /**
+     * El test que faltaba y por el que la variación de precio estuvo muerta
+     * con el CI en verde: MergeTest armaba el DTO a mano, así que el parser de
+     * `oldPrice` nunca se probó y `precioAnteriorCec` salía siempre null.
+     * `DeltaBadge` sale temprano con null, así que el fallo no se veía en
+     * ninguna parte salvo acá.
+     *
+     * Assert contra el fixture real: hoy los 527 productos traen precio
+     * anterior, así que la cobertura esperada es 100%.
+     */
+    @Test
+    fun `el precio anterior se lee del fixture y llega al merge`() {
+        val payload = payloadOficial()
+        val enriquecidos = MergeEngine.enriquecidosDesdePayload(payload)
+        val conAnterior = enriquecidos.count { it.precioAnteriorCec != null }
+        assertEquals(
+            "el precio anterior debe llegar para todos los productos del fixture",
+            enriquecidos.size,
+            conAnterior,
+        )
+
+        // Y que sobreviva el merge: esta es la mitad que MergeTest no cubría
+        // porque construía el DTO a mano en vez de parsear el fixture.
+        val base = ProductEntity(
+            localId = 1,
+            repoId = "1",
+            nombre = "Galleta Maria Puig",
+            nombreNormalizado = "galleta maria puig",
+            precioBs = 1365.0,
+            fuente = "repo",
+        )
+        val fila = MergeEngine.filasConEnriquecimiento(
+            listOf(enriquecidos.first { it.nombre == "Galleta Maria Puig" }),
+            listOf(base),
+            tasaVedPorCec = 832.49,
+        ).single()
+        assertEquals("elBs del mirror sigue siendo el canónico", 1365.0, fila.precioBs, 0.001)
+        assertNotNull("el precio anterior debe sobrevivir al merge", fila.precioAnteriorCec)
+        assertEquals(1.639658870012853, fila.precioAnteriorCec!!, 0.001)
     }
 
     @Test

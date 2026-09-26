@@ -86,7 +86,13 @@ data class PayloadProducto(
 @Serializable
 data class PayloadPrice(
     @SerialName("priceBase") val priceBase: PayloadMoney? = null,
-    @SerialName("oldPrice") val oldPrice: PayloadMoney? = null,
+    // `oldPrice` NO es un monto pelado: llega con la misma forma que
+    // `pricePublished` (verificado contra el fixture real: los 527 productos lo
+    // traen y el precio anterior vive en `oldPrice.priceBase.amount`).
+    // Tiparlo como PayloadMoney hacía que `oldPrice.amount` fuera siempre
+    // null, y como la guarda de DeltaBadge sale temprano con null, la
+    // variación de precio no se mostró nunca — con el CI en verde.
+    @SerialName("oldPrice") val oldPrice: PayloadPrice? = null,
     val updatedAt: String? = null,
 )
 

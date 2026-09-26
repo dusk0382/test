@@ -1,5 +1,6 @@
 package com.dusk0382.cecosesolaprecios.ui.catalog
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dusk0382.cecosesolaprecios.data.local.ClaseConteo
@@ -47,10 +48,15 @@ class CatalogViewModel @Inject constructor(
     private val _orden = MutableStateFlow(Orden.NOMBRE)
     val orden: StateFlow<Orden> = _orden.asStateFlow()
 
-    val sincronizando = MutableStateFlow(false)
+    // `asStateFlow()` en el lado lectura: exponer el MutableStateFlow dejaba que
+    // cualquier composable mutara el estado de sync de la pantalla.
+    private val _sincronizando = MutableStateFlow(false)
+    private val _yaRefrescado = MutableStateFlow(false)
+
+    val sincronizando: StateFlow<Boolean> = _sincronizando.asStateFlow()
 
     /** true cuando ya hubo al menos un intento de refresco en esta sesión. */
-    val yaRefrescado = MutableStateFlow(false)
+    val yaRefrescado: StateFlow<Boolean> = _yaRefrescado.asStateFlow()
 
     val total: StateFlow<Int> = repo.countFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
@@ -110,15 +116,23 @@ class CatalogViewModel @Inject constructor(
     }
 
     /** Refresco manual: base sí o sí (CDN, ~200ms); enriquecimiento en worker
-     *  (puede tardar 40s; no debe bloquear la interacción). */
+     *  (puede tardar 40s; no debe bloquear la interacción).
+     *
+     *  El `finally` no es cosmético: sin él, si `requestEnrich()` lanzaba, el flag
+     *  `sincronizando` se quedaba en `true` para siempre y el pull-to-refresh
+     *  quedaba colgado con el FAB escondido sin forma de recuperarlo. */
     fun refresh() {
-        if (sincronizando.value) return
+        if (_sincronizando.value) return
         viewModelScope.launch {
-            sincronizando.value = true
-            runCatching { repo.syncBase() }
-            repo.requestEnrich()
-            sincronizando.value = false
-            yaRefrescado.value = true
+            _sincronizando.value = true
+            try {
+                runCatching { repo.syncBase() }
+                    .onFailure { Log.w("CecoSync", "refresh: syncBase fallo: ${it.message}", it) }
+                repo.requestEnrich()
+                _yaRefrescado.value = true
+            } finally {
+                _sincronizando.value = false
+            }
         }
     }
 }

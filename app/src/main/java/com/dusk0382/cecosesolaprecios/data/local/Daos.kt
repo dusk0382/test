@@ -46,6 +46,9 @@ interface ProductDao {
     @Query("SELECT COUNT(*) FROM products")
     fun countFlow(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM products")
+    suspend fun count(): Int
+
     @Query("SELECT repoId FROM products WHERE repoId IS NOT NULL")
     suspend fun allRepoIds(): List<String>
 

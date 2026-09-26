@@ -1,5 +1,6 @@
 package com.dusk0382.cecosesolaprecios.ui.settings
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -84,22 +85,33 @@ class SettingsViewModel @Inject constructor(
      * Refresco manual: el mirror primero (rápido, sí o sí) y el enriquecimiento
      * se encola como worker — la API oficial tarda 7–40s y no se hace esperar al
      * usuario con la pantalla bloqueada. El mensaje es honesto sobre eso.
+     *
+     * El `finally` importa: `requestEnrich()` estaba fuera del `runCatching`, así
+     * que si lanzaba, `verificando` se quedaba en `true` y el botón quedaba
+     * deshabilitado para siempre, sin forma de reintentar a mano.
      */
     fun verificar() {
         if (_estado.value.verificando) return
         _estado.update { it.copy(verificando = true, mensaje = null) }
         viewModelScope.launch {
-            val ok = runCatching { repo.syncBase() }.isSuccess
-            repo.requestEnrich()
-            _estado.update {
-                it.copy(
-                    verificando = false,
-                    mensaje = if (ok) {
-                        "Lista base actualizada. Enriqueciendo en segundo plano…"
-                    } else {
-                        "No se pudo contactar la lista. Revisa tu conexión."
-                    },
-                )
+            var mensaje: String? = null
+            try {
+                val ok = runCatching { repo.syncBase() }
+                    .onFailure { Log.w("CecoSync", "verificar: syncBase fallo: ${it.message}", it) }
+                    .isSuccess
+                repo.requestEnrich()
+                mensaje = if (ok) {
+                    "Lista base actualizada. Enriqueciendo en segundo plano…"
+                } else {
+                    "No se pudo contactar la lista. Revisa tu conexión."
+                }
+            } catch (e: Exception) {
+                Log.e("CecoSync", "verificar: ${e.message}", e)
+                mensaje = "No se pudo verificar. Revisa tu conexión."
+            } finally {
+                _estado.update {
+                    it.copy(verificando = false, mensaje = mensaje)
+                }
             }
             recargar()
         }

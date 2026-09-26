@@ -1,6 +1,8 @@
 package com.dusk0382.cecosesolaprecios.data.repository
 
 import android.content.Context
+import android.util.Log
+import androidx.room.withTransaction
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -103,37 +105,77 @@ class ProductRepository @Inject constructor(
     // — sync —
 
     /** Encola el enriquecimiento como worker one-time: la API oficial tarda
-     *  7–40s y no debe atarse al ciclo de vida del ViewModel. */
+     *  7–40s y no debe atarse al ciclo de vida del ViewModel.
+     *
+     *  `REPLACE` y no `KEEP`: esto lo pide una persona tocando un botón, y con
+     *  `KEEP` la pulsación se descartaba en silencio si ya había un enrich
+     *  encolado, mientras la UI le decía al usuario "enriqueciendo en segundo
+     *  plano…". El nombre es único, así que no se apilan enrichimientos. */
     fun requestEnrich() {
         WorkManager.getInstance(context).enqueueUniqueWork(
             "sync_enrich_manual",
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<EnrichSyncWorker>().build(),
         )
     }
 
-    /** Sincroniza precios.json (rápido). True si hubo cambios. */
+    /**
+     * Sincroniza precios.json (rápido). True si hubo cambios.
+     *
+     * El read-modify-write va entero en una transacción: sin ella, `sync_base` y
+     * `sync_enrich` (que corren con nombres de work distintos, así que `KEEP` no
+     * los serializa) se pisan. El peor caso medido: un `sync_base` que leyó el
+     * snapshot antes de que el enrich pusiera un `apiId` devuelve esa fila con
+     * `apiId = null` y `fuente = "repo"`, revirtiendo el enriquecimiento ya
+     * aplicado.
+     */
     suspend fun syncBase(): Boolean = withContext(Dispatchers.IO) {
         val dto = repoApi.getPrecios()
         val fechaGuardada = metaDao.get(MetaKeys.REPO_DATE)
         if (fechaGuardada == dto.fechaActualizacion) return@withContext false
 
-        val existentes = productDao.all()
-        val porRepoId = existentes.filter { it.repoId != null }.associateBy { it.repoId!! }
-        val porNombre = existentes.associateBy { it.nombreNormalizado }
-        val filas = MergeEngine.filasDesdeRepo(dto, porRepoId, porNombre)
-        productDao.upsertAll(filas)
-        metaDao.put(MetaEntity(MetaKeys.REPO_DATE, dto.fechaActualizacion))
-        metaDao.put(MetaEntity(MetaKeys.REPO_SYNC_AT, System.currentTimeMillis().toString()))
+        val filas = db.withTransaction {
+            val existentes = productDao.all()
+            val nuevas = MergeEngine.filasDesdeRepo(dto, existentes)
+            productDao.upsertAll(nuevas)
+            metaDao.put(MetaEntity(MetaKeys.REPO_DATE, dto.fechaActualizacion))
+            metaDao.put(MetaEntity(MetaKeys.REPO_SYNC_AT, System.currentTimeMillis().toString()))
+            // El mirror declara cuántos productos trae. Si no coincide con lo que
+            // queda en la base, algo se perdió en el camino: antes se parseaba este
+            // campo y nunca se cruzaba, así que la pérdida pasaba inadvertida.
+            if (dto.totalProductos > 0) {
+                val enBase = productDao.count()
+                if (enBase < dto.totalProductos) {
+                    Log.w(
+                        TAG,
+                        "syncBase: el mirror trae ${dto.totalProductos} productos pero " +
+                            "quedan $enBase filas. Puede faltar un producto nuevo " +
+                            "(id que colisiona por nombre) o haber enriching incompleto.",
+                    )
+                }
+            }
+            nuevas
+        }
+        Log.i(TAG, "syncBase: ${filas.size} filas desde el mirror (fecha ${dto.fechaActualizacion})")
         true
     }
 
-    /** Enriquece con la API oficial (lento; fallar es normal). True si hubo cambios. */
+    /**
+     * Enriquece con la API oficial (lento; fallar es normal). True si hubo cambios.
+     *
+     * `false` significa "no había nada que hacer" (misma versión, payload vacío).
+     * Un fallo de red o de parseo lanza y lo distingue: el worker reintenta solo
+     * eso, en vez de reportar éxito ante un error de schema.
+     */
     suspend fun syncEnrich(): Boolean = withContext(Dispatchers.IO) {
-        val raw = officialApi.downloadFile() ?: return@withContext false
+        val raw = officialApi.downloadFile()
         val payload = runCatching {
             json.decodeFromString(PayloadOficial.serializer(), raw)
-        }.getOrNull() ?: return@withContext false
+        }.getOrElse {
+            // Se distingue del "no había cambios": un cambio de schema no se
+            // arregla reintentando, pero sí debe verse en el log.
+            error("el payload oficial no parsea: ${it.message}")
+        }
 
         val version = payload.priceList?.model?.version
         val versionGuardada = metaDao.get(MetaKeys.API_VERSION)?.toIntOrNull()
@@ -143,13 +185,26 @@ class ProductRepository @Inject constructor(
         val enriquecidos = MergeEngine.enriquecidosDesdePayload(payload)
         if (enriquecidos.isEmpty()) return@withContext false
 
-        val filas = MergeEngine.filasConEnriquecimiento(enriquecidos, productDao.all(), tasa)
-        productDao.upsertAll(filas)
-
-        if (version != null) metaDao.put(MetaEntity(MetaKeys.API_VERSION, version.toString()))
-        metaDao.put(MetaEntity(MetaKeys.API_SYNC_AT, System.currentTimeMillis().toString()))
-        if (tasa != null) metaDao.put(MetaEntity(MetaKeys.API_RATE_VED, tasa.toString()))
-        metaDao.put(MetaEntity(MetaKeys.BRANCHES_JSON, json.encodeToString(MergeEngine.nombresBranches(payload, json))))
+        db.withTransaction {
+            val filas = MergeEngine.filasConEnriquecimiento(enriquecidos, productDao.all(), tasa)
+            productDao.upsertAll(filas)
+            if (version != null) metaDao.put(MetaEntity(MetaKeys.API_VERSION, version.toString()))
+            metaDao.put(MetaEntity(MetaKeys.API_SYNC_AT, System.currentTimeMillis().toString()))
+            if (tasa != null) metaDao.put(MetaEntity(MetaKeys.API_RATE_VED, tasa.toString()))
+            metaDao.put(
+                MetaEntity(MetaKeys.BRANCHES_JSON, json.encodeToString(MergeEngine.nombresBranches(payload, json)))
+            )
+            filas
+        }
+        Log.i(
+            TAG,
+            "syncEnrich: ${enriquecidos.size} productos enriquecidos, version $version, " +
+                "tasa VED/CEC ${tasa ?: "sin tasa (los precios en Bs de filas solo-API quedan en 0)"}",
+        )
         true
+    }
+
+    private companion object {
+        const val TAG = "CecoSync"
     }
 }
