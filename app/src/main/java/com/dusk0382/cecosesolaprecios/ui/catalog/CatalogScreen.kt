@@ -102,7 +102,7 @@ fun CatalogScreen(
     // volver el campo mostraba la búsqueda restaurada mientras la grilla
     // consultaba con `_busqueda = ""`. El usuario veía un listado que no
     // correspondía a lo que había escrito, y no había forma de saber por qué.
-    // En un Helio G25 de 2–3 GB el recorte de memoria es routinely, no una
+    // En un Helio G25 de 2–3 GB el recorte de memoria es rutinario, no una
     // excepción, así que esto no es un caso de borde.
     LaunchedEffect(Unit) {
         if (query != vm.busquedaInicial()) vm.onBusquedaChange(query)

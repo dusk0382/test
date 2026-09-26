@@ -1,6 +1,6 @@
 ---
 name: ceco-puertas
-description: Cómo se verifica un cambio en Cecosesola Precios y por qué no hay build local. Úsala antes de dar cualquier cambio por terminado, cuando tyres de escribir un test, o cuando dudes de si un cambio está verificado. Explica el loop de CI, la disciplina de fixtures, y los falsos-verdes que yaelvaron a este repo.
+description: Cómo se verifica un cambio en Cecosesola Precios y por qué no hay build local. Úsala antes de dar cualquier cambio por terminado, cuando tyres de escribir un test, o cuando dudes de si un cambio está verificado. Explica el loop de CI, la disciplina de fixtures, y los falsos-verdes que ya trajeron a este repo.
 metadata:
   keywords:
   - testing
