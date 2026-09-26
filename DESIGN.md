@@ -56,8 +56,8 @@ Estas son las que ya cometimos. Ninguna vuelve sin justificación escrita aquí:
 
 ## 4. El primitivo único: "renglón de precio"
 
-**Una sola pieza se repite** en catálogo, favoritos, resultados y carrito. No se
-inventa una tarjeta distinta por pantalla:
+**Una sola pieza se repite** en catálogo, favoritos y resultados. No se inventa
+una tarjeta distinta por pantalla. Vive en `ui/common/RenglonProducto.kt`:
 
 ```
 ┌──────────────────┐
@@ -65,10 +65,21 @@ inventa una tarjeta distinta por pantalla:
 │                  │
 ├──────────────────┤
 │ Nombre a 2 líneas           ← bodyMedium, sentence case si viene en MAYÚSCULAS
-│ Bs 1.365,50      (+2,1 %)   ← título con cifras tabulares, acento naranja
-│                        [ − 2 + ]  o  [ + ]   ← stepper en la misma card
+│ Bs 1.365,50            [ − 2 + ]  o  [ + ]   ← stepper en la misma card
 └──────────────────┘
 ```
+
+> El `(+2,1 %)` que aparece en un borrador anterior de este diagrama **no va en la
+> tarjeta**: §7 lo prohíbe explícitamente. El diagrama manda, y su primera versión
+> se contradecía a sí misma. La variación de precio vive en el detalle, donde está
+> el resto de los datos.
+
+**El carrito es la excepción, y por una razón funcional.** Una línea de carrito
+necesita el importe de la línea (unitario × cantidad), que no cabe en una tarjeta
+de dos columnas; forzarla sería peor diseño, no más consistencia. Lo que sí se le
+exige es el **mismo lenguaje visual**: mismo `shapes.medium`, misma superficie sin
+borde, mismo `bodyMedium` para el nombre, mismo token de acento y mismas cifras
+tabulares para el precio. La regla es "una sola pieza", no "una sola geometría".
 
 Reglas del primitivo:
 
@@ -76,8 +87,14 @@ Reglas del primitivo:
   más barata).
 - Caja de imagen **1:1 siempre**, `ContentScale.Fit` sobre `surfaceContainerHighest`
   (las fotos vienen recortadas sobre blanco: el contenedor tonal evita el bloque blanco).
-- Nombre: máximo 2 líneas con elipsis, altura estable.
-- Precio: cifras tabulares, siempre con separador de miles es-VE.
+  *Pendiente*: hoy la caja tiene alto fijo (`AltoImagenTarjeta = 132.dp`), que en
+  una pantalla de 360 dp da 1.23:1 y cambia con el ancho. El 1:1 va con
+  `Modifier.aspectRatio(1f)`; está anotado como deuda, no como decisión.
+- Nombre: máximo 2 líneas con elipsis, altura estable, y **siempre** pasado por
+  `formatearNombreProducto`.
+- Precio: cifras tabulares, siempre con separador de miles es-VE, y pintado por
+  `PriceText` — el único componente que escribe un precio en la app. El color por
+  defecto es `LocalColoresPrecio.acento`, **nunca** `colorScheme.primary`.
 - El stepper reemplaza al botón `+` **en el mismo lugar** cuando el producto ya está
   en el carrito: agregar deja de requerir abrir el detalle.
 - Nada más en la tarjeta. Ni categoría, ni marca, ni descripción.
@@ -122,13 +139,33 @@ El diseño se verifica con cosas que fallan en CI, no con opiniones:
    (4.5:1 cuerpo, 3:1 texto grande e interfaz) en **tema claro y oscuro**. Este test
    existe porque "dark theme que apenas pasa el contraste" es un tell real y además
    un problema de accesibilidad.
+   **Y su trampa**: el test lista los pares "que la app realmente pinta", pero esa
+   lista se congeló cuando se escribió. Un par nuevo que nadie agrega no está
+   verificado aunque el test esté verde — y así quedó el precio del detalle y del
+   carrito en el naranja de marca (3.26:1) durante meses. Cuando se agrega o se
+   cambia un par de color, **el caso de test va en el mismo commit**.
 3. **`FormatoNombreTest`** — nombres en MAYÚSCULAS se muestran en sentence case;
-   los que ya vienen en mixta no se tocan (no se destrozan marcas).
-4. **`tools/ui_lint.sh`** — grep determinista sobre el código Compose: colores
-   hex fuera del tema, `.dp` fuera de los tokens de espaciado, emojis en strings,
-   literales en MAYÚSCULAS, iconos sin `contentDescription`.
+   los que ya vienen en mixta no se tocan (no se destrozan marcas). El formateador
+   se aplica en **las tres** pantallas que muestran un producto: si no, el mismo
+   producto aparece en minúsculas en la grilla y en mayúsculas en su ficha.
+4. **`tools/ui_lint.sh`** — tells deterministas sobre el código Compose, **corriendo
+   en la CI antes de los tests**: colores hex fuera del tema, `.dp` de espaciado
+   fuera de los tokens, emojis, literales en MAYÚSCULAS, `BorderStroke`, radios
+   sueltos, áreas táctiles bajo 48 dp, `Icon` sin etiqueta y precio pintado con un
+   `Text` propio. Este script llama a dos auxiliares:
+   - **`tools/ui_checks.py`** — lo que no se puede hacer con grep: seguir una
+     llamada a `Icon(` abierta y buscar el `contentDescription` de las líneas
+     siguientes.
+   - **`tools/imports.py`** — paquetes mal escritos (`coil` vs `coil3`, un símbolo
+     del subpaquete equivocado), símbolos usados sin importar e imports muertos.
+     Existe porque **aquí no se compila** (el SDK de Android es x86-64 y el host
+     es aarch64), así que cada error de import cuesta un ciclo entero de CI.
 5. **Conteo de tells** — al cerrar un rediseño se revisa la lista de la §3 y se
    anota cuántos quedan. Cuatro o más = no se entrega.
+
+Las skills de `.claude/skills/` (`ceco-tablero-precios`, `ceco-precios-datos`,
+`ceco-puertas`) llevan estas mismas reglas en forma ejecutable, con el `file:line`
+de cada una. Este documento dice **por qué**; las skills dicen **dónde**.
 
 ## 7. Estructura de pantallas
 
@@ -139,16 +176,26 @@ El diseño se verifica con cosas que fallan en CI, no con opiniones:
   opción es la mejora de mayor impacto de una UI de filtros, y que forzar selección
   única genera abandono):
   - Un solo botón de filtros con badge de cuántos filtros hay activos, en una hoja.
-  - **Conteo de resultados junto a cada opción** ("Despensa (109)").
+  - **Conteo de resultados junto a cada opción** ("Despensa (109)"). El conteo
+    respeta la **búsqueda activa** — es el número de lo que el usuario está
+    viendo, no el del catálogo entero. Y **no** depende de las clases ya
+    elegidas: si dependiera, al elegir un rubro todos los demás contarían 0 y no
+    habría forma de cambiar de opinión.
   - **Multi-selección de rubros** (OR dentro de rubros, AND con el resto): poder ver
     "Limpieza y aseo" + "Despensa" a la vez es una necesidad real, no un extra.
+    Sin tope: los 10 rubros se pueden elegir a la vez y el filtro los aplica a
+    todos.
   - Orden dentro de la misma hoja, y "Limpiar todo" visible.
   - Los filtros aplicados se muestran como chips descartables **pegados arriba** de la
     lista mientras existan, y el estado sobrevive al volver del detalle.
 - **Rubros**: los ~100 tags de la API no se navegan. Se usa la clasificación
   derivada y **medida** de `domain/Rubros.kt` (nombre primero, tag específico como
-  respaldo), dentro del selector de filtros con buscador, conteo por rubro y
-  secciones alfabéticas. `Otros` es una opción visible, no un cajón escondido.
+  respaldo), dentro del selector de filtros con conteo por rubro. `Otros` es una
+  opción visible, no un cajón escondido.
+  *Pendiente*: este documento pedía también buscador propio y secciones
+  alfabéticas dentro de la hoja de filtros. Con 10 opciones no aporta nada y suma
+  un campo más, así que la hoja es una `FlowRow` ordenada por cantidad. Si los
+  rubros crecen, se revisa.
 - **Consistencia en la tarjeta** (Baymard: 64% de los sitios falla en esto; mostrar un
   atributo sólo en algunos ítems hace que el usuario descarte los demás): la tarjeta
   muestra **siempre** imagen, nombre, precio y el control de carrito. El `%` de
@@ -160,36 +207,54 @@ El diseño se verifica con cosas que fallan en CI, no con opiniones:
 - **Barra inferior**: `ShortNavigationBar` en Catálogo, Favoritos y Carrito.
   **Oculta** en Detalle y Escáner (tareas de pantalla completa).
 
-## 8. Auditoría por skills (2026-09-25, code a reescribir)
+## 8. Auditoría por skills (cerrada el 2026-09-26)
 
-Pasada una por una de las 6 skills instaladas sobre el código actual. Lo que
-sigue es la lista de fix pendiente por cada lente — el rediseño de pantallas la
-cierra:
+Pasada una por una las 6 skills instaladas más 3 escritas para este proyecto. Los
+6 hallazgos originales están **resueltos**; quedan abajo como registro de por qué
+se hicieron, porque volver a leerlos evita reintroducirlos:
 
-1. **compose-component-design**: `ProductoCard` no acepta `Modifier` (el caller
-   no puede controlar ubicación). `Dato()` duplicado en Detail y Settings;
-   `QtyButton` (Detail) y `Stepper` (Cart) son el mismo concepto con dos
-   implementaciones → van a `ui/common` como un único componente.
-2. **compose-performance**: `query` se colecta al tope de `CatalogScreen`, cada
-   tecleo recompone chips + orden + grid scope. El campo de búsqueda debe ser
-   dueño de su estado y empujar al VM. `fechaRepo` en el VM usa el patrón frágil
-   `MutableStateFlow(null).also { launch {} }`. `ProductEntity` es estable y las
-   grillas usan `key` — eso ya está bien.
-3. **compose-animations**: la app no tiene una sola animación. Plan mínimo
-   funcional (nada decorativo): `animateContentSize()` en steppers, `Crossfade`
-   para vacío↔resultados, `fadeIn/out` en el NavHost, `AnimatedVisibility` para
-   FAB y badge del carrito. Motion en fase draw/layout, jamás recomponiendo por
-   frame (Mali-G52).
-4. **styles** (Google): la API `Styles` que promueve requiere Compose
-   1.12-alpha (bloqueada por AGP 9.1) — no aplicable. Su paso de auditoría
-   encontró: color limpio (cero hex fuera de theme/ ✓) pero **7 radios de
-   esquina escritos a mano** (8/12/14/16/20/28 dp) en vez de los tokens de
-   `Forma.kt` → todos a `MaterialTheme.shapes.*`.
-5. **edge-to-edge**: falta `enableEdgeToEdge()` en MainActivity (con targetSdk
-   35 el sistema lo fuerza igual, pero sin la llamada los iconos de las barras
-   dependen del default). Falta `isAppearanceLightNavigationBars` (solo se toca
-   el de status) y `isNavigationBarContrastEnforced = false`. Son 3 líneas.
-6. **anti-ai-slop-ui**: su lint web no escanea Kotlin (esperado). Grep propio:
-   quedan 2 `border` sueltos (ProductoCard y CartRow — regla §3.2) y un emoji
-   🛒 en el texto compartido del carrito (cambia por texto plano). El resto de
-   tells de la §3 ya estaban cerrados.
+1. **compose-component-design** ✅ — `RenglonProducto` acepta `Modifier`;
+   `Dato()` unificado como `FilaDato`; `QtyButton` y `Stepper` fusionados en un
+   solo `Stepper` de `ui/common`; el primitivo se mudó de `ui/catalog` a
+   `ui/common` (lo usan catálogo y favoritos). *Pendiente*: `PriceText` ya
+   acepta `Modifier` ✓, pero `EtapaVacio` y `HojaFiltros` siguen siendo privados
+   de su pantalla.
+2. **compose-performance** ✅ — el campo de búsqueda es dueño de su estado y empuja
+   al VM con debounce; el patrón `MutableStateFlow.also { launch {} }` ya no está;
+   `LocalUsdPrecio` pasó de `staticCompositionLocalOf` a `compositionLocalOf`
+   (con el `static`, cambiar la moneda recomponía **toda** la app); `Regex`
+   compiladas a nivel de archivo en vez de por llamada y por tarjeta; el
+   formateo del precio va en `remember`; `sincronizando`/`yaRefrescado` se
+   exponen como `StateFlow` de solo lectura.
+3. **compose-animations** ✅ — `animateContentSize` en el stepper, `Crossfade`
+   para vacío↔resultados, `AnimatedVisibility` en el FAB y en la barra inferior.
+   *Pendiente*: transiciones de `fadeIn/out` en el `NavHost` y `AnimatedVisibility`
+   en el badge del carrito.
+4. **styles** (Google) ✅ en lo aplicable — la API `Styles` requiere Compose
+   1.12-alpha, bloqueada por AGP 9.1: no aplica. Los 7 radios sueltos quedaron en
+   `MaterialTheme.shapes.*`, y ahora `ui_lint.sh` falla si vuelve a aparecer uno.
+5. **edge-to-edge** ✅ — `enableEdgeToEdge()` en `MainActivity` y las tres llamadas
+   de apariencia de barras en `Theme.kt`. *Pendiente*: `themes.xml` todavía pone
+   `android:statusBarColor` en el naranja de marca y fondo de ventana blanco, lo
+   que se ignora en API 35+ pero produce un destello blanco antes del primer
+   frame en versiones anteriores.
+6. **anti-ai-slop-ui** ✅ — cero `border` sueltos, cero emojis, cero hex fuera del
+   tema, cero MAYÚSCULAS de UI. Su lint web no escanea Kotlin, así que el grep
+   propio (`tools/ui_lint.sh` + `ui_checks.py`) es el que manda, y ahora corre en
+   la CI.
+
+## 9. Deuda conocida (anotada, no escondida)
+
+- **La caja de imagen de la tarjeta no es 1:1** (§4): tiene alto fijo de 132 dp.
+- **La migración de Room v1→v2 no está verificada por nada**: `exportSchema = false`,
+  no hay schemas exportados para diffear, no hay `MigrationTestHelper` y no hay
+  tests instrumentados. Lo único que la protege es el comentario.
+- **Sin tests instrumentados**: nada de UI, nada de Room real, nada de escáner.
+  El smoke test de CI *abre* la app; no la usa.
+- **Las imágenes de la API oficial llegan por `http://`** al mismo host que sirve
+  el GraphQL, con la excepción de cleartext en `network_security_config.xml`. Un
+  atacante en el camino puede inyectar imágenes y el payload de precios.
+- **`ProductEntity.updatedAt` se recorta con `substringBefore('T')`**: funciona
+  para el ISO-8601 del mirror, no verificado para el de la API oficial.
+- **No hay reconciliación**: un producto que desaparece de la API oficial sigue
+  ocupando su fila. Es el precio de no borrar, y se acepta a propósito.

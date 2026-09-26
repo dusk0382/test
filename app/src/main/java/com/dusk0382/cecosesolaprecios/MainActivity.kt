@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -140,7 +141,17 @@ private fun AppNav() {
                             icon = {
                                 BadgedBox(
                                     badge = {
-                                        if (d == Dest.Carrito && cartCount > 0) Badge { Text("$cartCount") }
+                                        // Aparece y desaparece con un fade corto
+                                        // en vez de un corte: el indicador de la barra
+                                        // puede animar (DESIGN.md §5) y 150ms alcanza
+                                        // para que se note el cambio sin distraer.
+                                        AnimatedVisibility(
+                                            visible = d == Dest.Carrito && cartCount > 0,
+                                            enter = fadeIn(),
+                                            exit = fadeOut(),
+                                        ) {
+                                            Badge { Text("$cartCount") }
+                                        }
                                     },
                                 ) {
                                     Icon(
@@ -160,6 +171,14 @@ private fun AppNav() {
             NavHost(
                 navController = navController,
                 startDestination = Dest.Catalogo.route,
+                // Fade de 150ms al entrar y salir de cada destino (DESIGN.md §5):
+                // da continuidad entre pestañas sin desplazar el contenido, que en
+                // una grilla de 518 productos en un Mali-G52 sale más caro de lo que
+                // aporta. Sin transición el salto de pantalla se lee como un parpadeo.
+                enterTransition = { fadeIn(tween(150)) },
+                exitTransition = { fadeOut(tween(150)) },
+                popEnterTransition = { fadeIn(tween(150)) },
+                popExitTransition = { fadeOut(tween(150)) },
             ) {
                 composable(Dest.Catalogo.route) {
                     CatalogScreen(

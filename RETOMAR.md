@@ -25,9 +25,13 @@ desarrollo: **Termux + PRoot Debian aarch64 en ese mismo teléfono**.
   `.github/workflows/build.yml` (tests + assembleDebug + assembleRelease) y sube los
   APKs como artefactos descargables desde la pestaña Actions de GitHub. El usuario
   instala el APK en el teléfono a mano (sin adb).
-- **El repo todavía no tiene remote.** Falta `git remote add origin …` + push — ver §9 paso 0.
-- **El PAT que pasó el usuario está REVOCADO/INVÁLIDO** (401 "Bad credentials" contra
-  api.github.com/user). Pedir uno nuevo o que el usuario haga el push él mismo.
+- **El remote ya está y la CI ya compila** (corregido el 2026-09-26; este texto
+  quedó viejo): `origin` = `https://github.com/dusk0382/test.git`, `main` trackeado
+  y al día. El push se hace con `GIT_ASKPASS` apuntando a un script temporal
+  fuera del repo, para que el token no quede en `.git/config`. El PAT anterior sí
+  estaba revocado; el actual funciona y tiene scope de Actions (se pueden leer
+  runs, jobs, logs y artefactos por API — ojo: en la URL el `id` del run NO es el
+  `run_number`, confundirlos da un 404 que parece falta de permisos).
 - Los endpoints de red funcionan bien desde este teléfono (curl OK).
 
 ## 3. Fuentes de datos (verificadas en vivo 2026-09-13)
@@ -125,7 +129,7 @@ La sección se deja abajo solo como historia; el estado real está en §4bis.
    (solo si hay tasa), crédito de fuente. Ambas rutas (`AJUSTES`, `ESCANER`) registradas.
 8. 🟡 Tests de prefs/visible: siguen sin escribir (bajo riesgo: son UI/formato).
 9. ❌ **SIGUE SIN COMPILAR NUNCA.** Este es el pendiente #1 real. No hay remote
-   todavía (el PAT que pasó el usuario dio 401 — ver §9).
+   todavía (resuelto el 2026-09-26: el remote existe y el build de CI funciona).
 
 ### 🆕 Defectos abiertos conocidos (post a228605)
 1. **`CartLine` cambió de forma** (se le añadió `precioCec: Double?`): el query del
@@ -147,22 +151,21 @@ Paso 4 Detalle+Favoritos 🟡 (UI escrita, cableado pendiente §4.2) · Paso 5 C
 (idem) · Paso 6 Enriquecimiento: backend ✅ pero DeltaBadge bug §4.3 y USD toggle sin
 UI · Paso 7 Escáner 🔴 borrador roto §4.1 · Paso 8 Perf/polish/ajustes ❌ no empezado.
 
-Cosas del plan aún NO hechas:
-- Ajustes/Settings screen completa (§4.7).
+Cosas del plan **YA HECHAS** (esta lista quedó vieja; ver el historial):
+- Pantalla de Ajustes completa, con fechas de sync, tasa, ferias y "Verificar datos".
 - Tema manual (SYSTEM/LIGHT/DARK) aplicado en MainActivity desde MainViewModel.
-- Toggle Bs⇄USD en la UI (las piezas existen: AppPrefs.usd, MainViewModel.usd,
-  PrecioVisible.kt — solo falta consumirlas en cards/detalle/carrito/ajustes).
-- WorkManager one-time "verificar datos" desde Ajustes (el método existe:
-  `repo.requestEnrich()`; exponer botón).
-- `ferias()` existe en ProductRepository pero ninguna UI lo muestra.
+- Toggle Bs⇄USD, consumido en tarjeta, detalle y carrito.
+- Botón "Verificar datos" en Ajustes, con `try/finally` para que no se bloquee.
+- `ferias()` se muestra en Ajustes.
+- Las 6 skills de Google/android instaladas (`.agents/skills/`, con symlinks en
+  `.claude/skills/`) + 3 escritas para este proyecto: `ceco-precios-datos`,
+  `ceco-tablero-precios`, `ceco-puertas`.
+
+Cosas del plan aún NO hechas:
 - README de instalación para el usuario.
-- baseline profile: solo 8 líneas de arranque; falta enriquecer al final (Paso 8).
-- El usuario preguntó por `npx autoskills` como segunda opinión — ofrecido, no hecho.
-- Skills de Google planeados (`camerax`, `r8-analyzer`, `edge-to-edge`, `testing-setup`,
-  `gradle-build-performance` vía `npx skills add android/skills --skill …`) — no instalados;
-  `Skill(camerax)` falló ("Unknown skill") porque nunca se corrió la instalación. Se puede
-  trabajar sin ellos (recetas estándar conocidas), pero para el paso 8 instalar
-  `r8-analyzer`/`edge-to-edge` vale la pena.
+- baseline profile: solo 8 líneas de arranque; falta enriquecer al final.
+- Transiciones `fadeIn/out` en el NavHost y `AnimatedVisibility` en el badge del
+  carrito (lo único que quedó de la auditoría de motion, §8.3 de DESIGN.md).
 
 ## 6. Cómo iterar (build loop)
 
@@ -170,7 +173,7 @@ Cosas del plan aún NO hechas:
 cd /root/frebufftesteos/Ceco
 git add -A && git commit -m "…"      # messages terminan con: Co-Authored-By: Claude Code <noreply@anthropic.com>
 # falta remote:  git remote add origin https://github.com/dusk0382/cecosesola-precios.git
-#                git push -u origin main      (necesita credenciales válidas)
+# push: GIT_ASKPASS=/ruta/askpass.sh GIT_TERMINAL_PROMPT=0 git push origin main
 ```
 CI corre solo (`build.yml`). Ver resultados: `gh run list`/`gh run watch` si hay
 CLI+token, o el usuario mira la pestaña Actions / descarga el artefacto `apks`.
@@ -208,9 +211,11 @@ Keystore para releases actualizables: `keytool -genkey -keystore release.keystor
 4. Pantalla Ajustes (§4.7): lista simple — fechas sync, ferias, toggle USD (solo
    visible si `repo.tasaOficial()!=null`), tema, botón "Verificar datos"
    (`repo.requestEnrich()` + refresh base inline), crédito "Datos: precios.cecosesola.coop".
-5. Commit TODO, pedir al usuario remote/credenciales válidas (el PAT viejo está muerto),
-   push, mirar CI, iterar errores de compilación uno por lote (no uno por uno —
-   rate limit).
+5. Commit, push, y leer la CI por API en vez de pedirle los resultados al
+   usuario. Iterar los errores **en lote, no de a uno**: cada ciclo cuesta
+   ~1.5 min (tests + ambos APK) y el job del emulador suma 3.1 min, así que
+   conviene agrupar. Ojo con `concurrency: cancel-in-progress`: un push mata el
+   run en vuelo, así que hay que esperar el resultado antes de pushear otra vez.
 6. Paso 8 del plan: R8/baseline/edge-to-edge (opcional: instalar `r8-analyzer`,
    `edge-to-edge` de android/skills antes).
 7. README.
