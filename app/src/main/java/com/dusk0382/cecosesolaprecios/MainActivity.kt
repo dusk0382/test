@@ -60,6 +60,10 @@ import kotlinx.coroutines.launch
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // El super va PRIMERO y sin excusas: ActivityThread exige que onCreate
+        // desemboque en Activity.onCreate (si no, SuperNotCalledException y la
+        // app muere antes del primer frame).
+        super.onCreate(savedInstanceState)
         // Edge-to-edge explícito (targetSdk 35 lo fuerza igual): sin esta llamada
         // los iconos de las system bars dependen del default del sistema. La
         // versión de ComponentActivity maneja ambos barras automaticamente.
