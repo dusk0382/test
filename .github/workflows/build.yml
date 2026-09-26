@@ -127,13 +127,10 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 1800
           emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          # El action ejecuta el script linea por linea (shell nuevo en cada una):
+          # la orquestacion va en tools/smoke_all.sh, no aqui.
           script: |
-            release=0; debug=0
-            bash tools/smoke_apk.sh apks/app-release.apk com.dusk0382.cecosesolaprecios /tmp/logcat-release.txt || release=$?
-            adb uninstall com.dusk0382.cecosesolaprecios > /dev/null 2>&1 || true
-            bash tools/smoke_apk.sh apks/app-debug.apk com.dusk0382.cecosesolaprecios.debug /tmp/logcat-debug.txt || debug=$?
-            echo "### resultado: release=$release debug=$debug (0 = arranca sin crash)"
-            [ "$release" = 0 ] && [ "$debug" = 0 ]
+            bash tools/smoke_all.sh apks
 
       - name: Subir logcat del arranque
         if: always()
