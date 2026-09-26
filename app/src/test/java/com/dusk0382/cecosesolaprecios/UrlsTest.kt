@@ -5,7 +5,6 @@ import com.dusk0382.cecosesolaprecios.domain.aHttps
 import java.io.BufferedReader
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -86,9 +85,14 @@ class UrlsTest {
             "el fixture ya no trae URLs http: la premisa de aHttps() cambio",
             inner.contains("http://kana.imk.cecosesola.coop"),
         )
-        assertFalse(
-            "el fixture ya no trae el segundo host de Cecosesola",
-            inner.contains("imolko.net"),
+        // El segundo host de Cecosesola es el que hacia grande el bug: 146 de las
+        // 453 URLs http del fixture son de aca, y el network_security_config solo
+        // allowlistaba el primero. Si este host desapareciera del payload, la
+        // mitad del problema ya no estaria y habria que reevaluarlo.
+        assertTrue(
+            "el fixture ya no trae kana.develop.cecosesola.imolko.net; el alcance " +
+                "del bug de cleartext cambio y hay que recalcular las 146 imagenes",
+            inner.contains("kana.develop.cecosesola.imolko.net"),
         )
     }
 }
