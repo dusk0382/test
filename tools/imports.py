@@ -109,14 +109,27 @@ SIMBOLOS_QUE_SE_OLVIDAN = [
     "mutableStateOf", "rememberSaveable", "LaunchedEffect", "stateIn",
     "combine", "debounce", "flatMapLatest", "distinctUntilChanged", "SharingStarted",
     "bottomSheet", "Crossfade", "scaleIn", "fadeIn", "slideInVertically",
+    # Tipos de Android y Kotlin que se usan en firmas y se olvidan al mover
+    # codigo de archivo. Anadidos tras cuatro rondas seguidas de CI en rojo por
+    # imports: esta lista es el que se paga por no haberlos anticipating.
+    "Context", "Activity", "Intent", "Uri", "Bundle", "Log", "Size", "Color",
+    "Duration", "ColorFilter", "Path", "Rect",
 ]
 
 
 def _sin_comentarios(txt: str) -> str:
-    """Lo que cuenta es el código: un símbolo nombrado en un comentario no
-    necesita import (y `debounce` aparece en varios)."""
+    """
+    Lo que cuenta es el código, no lo documentado.
+
+    Filtra los comentarios de línea y **de bloque**: los KDoc mencionan nombres
+    de archivo tipo `Color.kt`, que se leían como uso del símbolo `Color` y
+    reportaban un import que no faltaba. Un checker que da falsos positivos
+    entrena a ignorar sus propias salidas.
+    """
+    import re as _re
+    sin_bloque = _re.sub(r"/\*.*?\*/", "", txt, flags=_re.S)
     return "\n".join(
-        l.split("//")[0] for l in txt.splitlines() if not l.startswith("import ")
+        l.split("//")[0] for l in sin_bloque.splitlines() if not l.startswith("import ")
     )
 
 
@@ -164,13 +177,25 @@ def revisar(path: Path) -> None:
 
     # 5. símbolo usado, no importado y no definido en el archivo: el error que
     #    dejó la tarjeta sin `Arrangement` al moverla a ui/common.
-    definidos_en_el_archivo = set(re.findall(r"\b(fun|val|var|class|object)\s+(\w+)", cuerpo))
-    definidos_en_el_archivo = {d[1] for d in definidos_en_el_archivo}
+    # Ojo con las funciones de extension: `fun Context.findActivity()` hace que
+    # `Context` parezca declarado en el archivo, y entonces un import faltante de
+    # ese tipo pasaba inadvertido. El `(?![\w.])` descarta lo que va seguido de
+    # punto, que es justamente un receptor de extension.
+    definidos_en_el_archivo = set(
+        re.findall(r"\b(?:fun|val|var|class|object)\s+(\w+)(?![\w.])", cuerpo)
+    )
     for simbolo in SIMBOLOS_QUE_SE_OLVIDAN:
         if simbolo in importados or simbolo in definidos_en_el_archivo:
             continue
         # Se usa como identificador desnudo, no como `algo.algo`
-        if re.search(r"(?<![A-Za-z0-9_.])" + simbolo + r"(?![A-Za-z0-9_(])", cuerpo):
+        # `(?![\w(])`: no es followed de palabra ni llamada.
+        # `(?!\.kt\b)`: `Color.kt` en un KDoc es un nombre de archivo, no un uso
+        # del símbolo — pero `Context.findActivity()` SÍ es un uso, así que solo
+        # se descarta la forma de nombre de archivo y no cualquier punto.
+        if re.search(
+            r"(?<![A-Za-z0-9_.])" + simbolo + r"(?![A-Za-z0-9_(])(?!\.kt\b)",
+            cuerpo,
+        ):
             problemas.append(f"{path}: {simbolo} se usa pero no está importado")
 
 

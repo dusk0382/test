@@ -2,6 +2,7 @@ package com.dusk0382.cecosesolaprecios.ui.scanner
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
