@@ -72,11 +72,19 @@ documentada y todo llega rare.
    precio distinto (p.ej. `Jabón de baño Dalan 125gr` ×4 a 765 y 745). Por eso
    el match por nombre normalizado es un **fallback**, nunca la estrategia
    primary, y su colisión tiene que resolverse sin perder la fila.
-6. **Hay claves de nivel superior que valen oro y se ignoran**:
+6. **Las imágenes vienen en `http://`.** 453 de las 527 referencias del fixture,
+   en ~55 hosts distintos, de los cuales solo dos son de Cecosesola
+   (`kana.imk.cecosesola.coop` y `kana.develop.cecosesola.imolko.net`). Los otros
+   ~50 son basura scrapeada, un URL cada uno. Los dos de Cecosesola responden por
+   https (200) y los http solo redirigen (308), así que `domain/Urls.kt` sube el
+   esquema **al guardar**, y el `network_security_config` quedó en
+   `cleartextTrafficPermitted="false"` sin allowlist. Antes allowlistaba un host:
+   146 imágenes (28%) no cargaban y nadie sabía por qué.
+7. **Hay claves de nivel superior que valen oro y se ignoran**:
    `productsPriceChanged` (la lista real de cambios de precio) y `cachedAt`
    (mejor clave de idempotencia que `version`). `PayloadOficial`
    (`OfficialDtos.kt:33-38`) no las declara.
-7. **El servidor sirve un snapshot cacheado** (`cached` en el payload): la
+8. **El servidor sirve un snapshot cacheado** (`cached` en el payload): la
    `version` puede ir detrás de la realidad.
 
 ## Regla de no pérdida
@@ -90,7 +98,7 @@ documentada y todo llega rare.
   (`precioCec * tasa`). Es una aproximación: si la tasa no está disponible, no
   se puede fingir un precio en Bs.
 - Si el conteo del mirror (`totalProductos`, `RepoDtos.kt:11`) no cuadra con las
-  filas en DB, es una señal de que algo se perdió. Hoy se parsea y no se cruza.
+  filas en DB, es una señal de que algo se perdió. Ya se cruza y avisa por log.
 - Todo el read-modify-write del merge va en **una transacción**. Sin ella, dos
   workers concurrentes se pisan: el read ocurre antes del write del otro y el
   `copy()` devuelve campos que nadie escribió.

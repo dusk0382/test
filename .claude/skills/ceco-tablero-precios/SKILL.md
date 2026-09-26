@@ -190,6 +190,21 @@ Y dos cosas más que no son bugs pero conviene no romper:
   código de lo que acabás de escanear tiene que encontrarlo. La lógica pura vive
   en `data/repository/Busqueda.kt` y está en `BusquedaTest`.
 
+## Insets: la trampa del Scaffold anidado
+
+`MainActivity` tiene un `Scaffold` con `contentWindowInsets` por defecto
+(`systemBars`) y su contenido hace `padding(insets)`. **`Modifier.padding(PaddingValues)`
+mide y coloca, pero NO consume los insets.** Así que cualquier `Scaffold` dentro de
+una pantalla vuelve a aplicar las barras del sistema: el status bar se suma dos
+veces y, si no hay `bottomBar` interno, la barra de navegación también.
+
+La firma es: los `Scaffold` internos van con `contentWindowInsets = WindowInsets(0, 0, 0, 0)`
+y sus `TopAppBar` con `windowInsets = WindowInsets(0, 0, 0, 0)`.
+
+Cómo se nota que es un defecto y no una decisión: las pantallas **sin** Scaffold
+interno (catálogo, favoritos) están bien, así que navegar entre una y otra hace
+saltar el layout una altura de status bar. Esa inconsistencia es la prueba.
+
 ## Accesibilidad (es parte del contrato, no un extra)
 
 - Todo icono con `contentDescription`; decorativo lleva `null` explícito.
