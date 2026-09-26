@@ -21,11 +21,21 @@ interface ProductDao {
      * Room no acepta `List<String>` como parámetro en un @Query, y `IN (:a, :b)`
      * con cardinalidad variable tampoco compila, así que la lista va cosida en un
      * string y se desarma con un `,` en la condición.
+     *
+     * `barcodeExacto` cierra el agujero de la app escáner: la base guarda los
+     * códigos de barras pero la búsqueda solo miraba el nombre, así que escribir
+     * el código de lo que acabás de escanear no encontraba nada. Se compara
+     * **exacto**, no con `LIKE`: un barcode es un identificador, no un texto, y
+     * una coincidencia parcial sobre una columna sin índice además puede traer
+     * productos distintos. Con "" no hace match con nada.
+     *
+     * `query` llega normalizado y con los comodines de LIKE escapados.
      */
     @Query(
         """
         SELECT * FROM products
-        WHERE (:query = '' OR nombreNormalizado LIKE '%' || :query || '%' ESCAPE '\')
+        WHERE (:query = '' OR nombreNormalizado LIKE '%' || :query || '%' ESCAPE '\'
+                      OR barcode = :barcodeExacto)
           AND (:clasesCsv = '' OR instr(',' || :clasesCsv || ',', ',' || clase || ',') > 0)
         ORDER BY
           CASE WHEN :orden = 'precio_asc' THEN precioBs END ASC,
@@ -38,6 +48,7 @@ interface ProductDao {
     )
     fun searchFlow(
         query: String,
+        barcodeExacto: String,
         clasesCsv: String,
         orden: String,
     ): Flow<List<ProductEntity>>
@@ -45,7 +56,7 @@ interface ProductDao {
     /**
      * Conteo por clase **para la consulta actual**: es el número que va junto a
      * cada opción del filtro, y ese número tiene que ser el de lo que el usuario
-     * está viendo. La versión anterior era un `GROUP BY clase` sobre la tabla
+     * está viendo. La versión anterior era un `GROUP BY` sobre la tabla
      * entera, así que escribiendo "leche" el selector ofrecía "Despensa (109)":
      * un número que no era el resultado de nada. Es la mejora de mayor impacto
      * según Baymard, y sirve de nada si el número miente.

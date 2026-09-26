@@ -19,7 +19,6 @@ import com.dusk0382.cecosesolaprecios.data.remote.OfficialApi
 import com.dusk0382.cecosesolaprecios.data.remote.RepoApi
 import com.dusk0382.cecosesolaprecios.data.remote.dto.PayloadOficial
 import com.dusk0382.cecosesolaprecios.data.sync.EnrichSyncWorker
-import com.dusk0382.cecosesolaprecios.domain.normalizarNombre
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -48,7 +47,12 @@ class ProductRepository @Inject constructor(
      * que aplicar todas las que haya.
      */
     fun searchFlow(query: String, clases: List<String>, orden: String): Flow<List<ProductEntity>> =
-        productDao.searchFlow(escaparLike(consultaDeBusqueda(query)), clases.joinToString(","), orden)
+        productDao.searchFlow(
+            escaparLike(consultaDeBusqueda(query)),
+            barcodeDeConsulta(query),
+            clases.joinToString(","),
+            orden,
+        )
 
     /**
      * Conteo por clase para la consulta actual — el número que se muestra junto a
@@ -203,23 +207,5 @@ class ProductRepository @Inject constructor(
 
     private companion object {
         const val TAG = "CecoSync"
-
-        /**
-         * Consulta de búsqueda ya normalizada (minúsculas, sin acentos), que es
-         * como está la columna `nombreNormalizado`.
-         */
-        fun consultaDeBusqueda(query: String): String = normalizarNombre(query)
-
-        /**
-         * Escapa los comodines de `LIKE` antes de mandarlos a la consulta. Sin
-         * esto, escribir `%` en el buscador traía los 518 productos y `_`
-         * emparejaba cualquier carácter: un `%` es un carácter perfectly normal
-         * en un nombre de producto ("QUESO 100%") y el usuario lo escribe sin
-         * saber que está disparando un comodín.
-         */
-        fun escaparLike(texto: String): String = texto
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
     }
 }

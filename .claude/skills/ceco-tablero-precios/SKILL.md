@@ -148,13 +148,49 @@ toggle de favorito. El indicador de la barra de navegación puede animar.
 Nunca en fase de composición ni recomponiendo por frame: el Mali-G52 no lo
 paga. Cero animaciones de entrada de listas.
 
+## Buscador: los tres bugs que ya vivió ahí
+
+Anotados porque son el tipo de defecto que vuelve cuando nadie sabe por qué el
+código está como está:
+
+1. **La grilla se queda a media lista al cambiar la búsqueda.** Sin `state`
+   explícito, `LazyVerticalGrid` conserva un `rememberLazyGridState()` interno que
+   sobrevive a los cambios de contenido: al filtrar a pocos resultados el índice
+   del ancla se mantiene, y al limpiar el campo la lista se re-expande con el
+   usuario donde estaba antes de filtrar. Se ve como "se scrolleó solo".
+   El arreglo es `key(query, filtros, orden) { rememberLazyGridState() }`:
+   cambiar las claves descarta el `remember` y la grilla arranca en 0 por
+   construcción. **No** con `LaunchedEffect { scrollToItem(0) }`, que llama
+   `scrollToItem` sobre un estado que puede no estar montado (si la búsqueda no
+   deja resultados, la grilla no está compuesta) y depende de que el scroll
+   pendiente se aplique al re-adjuntarse.
+2. **El placeholder desalineado.** Un `Text` apilado en un `Box` junto al
+   `BasicTextField` no se alinea con el texto si el campo tiene `padding` y el
+   `Text` no, y al teclear la primera letra todo salta. Usar el parámetro
+   `placeholder` de `BasicTextField`, que se compone en el origen del texto por
+   construcción.
+3. **La acción de teclado que no hace nada.** `ImeAction.Search` sin su
+   `KeyboardActions` deja una tecla visible que no ocurre para nada. Peor que no
+   tenerla.
+
+Y dos cosas más que no son bugs pero conviene no romper:
+
+- `escaparLike` en la consulta: sin eso, escribir `%` en el buscador trae los 518
+  productos. Un `%` es un carácter normal en un nombre ("QUESO 100%").
+- La búsqueda también acepta **código de barras** completo (8 o 13 dígitos,
+  exacto, no `LIKE`): la app escanea códigos y los guarda, así que buscar el
+  código de lo que acabás de escanear tiene que encontrarlo. La lógica pura vive
+  en `data/repository/Busqueda.kt` y está en `BusquedaTest`.
+
 ## Accesibilidad (es parte del contrato, no un extra)
 
 - Todo icono con `contentDescription`; decorativo lleva `null` explícito.
 - `Stepper`: los botones `−`/`+` son `Text`, no iconos — necesitan etiqueta
   ("Quitar uno" / "Agregar uno") y `stateDescription` con la cantidad.
 - El buscador necesita etiqueta accesible: un `BasicTextField` sin `label` ni
-  placeholder le dice a TalkBack "campo de texto" y nada más.
+  placeholder le dice a TalkBack "campo de texto" y nada más. Se etiqueta con
+  `contentDescription` en el campo, y el `placeholder` lleva
+  `clearAndSetSemantics {}` para que no se anuncie dos veces lo mismo.
 - Tamaño táctil mínimo 48 dp (`Espacio.toqueMinimo`). Un `Box(40.dp)` con un
   ícono de 20 dp no cumple.
 - Texto blanco sobre la cámara necesita scrim: sobre una foto de producto

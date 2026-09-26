@@ -62,6 +62,29 @@ class CatalogViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /**
+     * Texto de búsqueda ya asentado: un solo temporizador de debounce para toda la
+     * app, en vez de uno por consumidor.
+     *
+     * Antes `productos` y `conteoClases` tenían cada uno su propio
+     * `debounce(220)` sobre el mismo `_busqueda`. Eso son dos temporizadores
+     * vivos y **dos consultas a Room por búsqueda terminada**, sobre la misma
+     * tabla, con el mismo resultado. En un Helio G25 la segunda consulta no es
+     * gratis aunque la base sea de 527 filas, y el contador es justo el que se
+     * lee mientras la grilla se está repintando.
+     *
+     * `Eagerly` a propósito: el debounce vive mientras vive el ViewModel, no
+     * mientras haya suscriptores. Con `WhileSubscribed` la cadena se soltaba
+     * al perder la UI y al volver reemitía el valor inicial `""`, lo que
+     * disparaba una consulta de catálogo completo de más y un parpadeo de
+     * resultados. Un temporizador de 220 ms en un ViewModel de Activity no
+     * cuesta nada y hace el comportamiento predecible.
+     */
+    private val consultaAsentada: StateFlow<String> = _busqueda
+        .debounce(220L)
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, _busqueda.value)
+
+    /**
      * Conteo por clase para el selector de filtros. Baymard (ver DESIGN.md §7):
      * el conteo junto a cada opción es la mejora de mayor impacto en una UI de
      * filtros, y la multi-selección evita la fricción de la selección única.
@@ -74,9 +97,7 @@ class CatalogViewModel @Inject constructor(
      * No depende de las clases ya elegidas: si dependiera, al elegir un rubro
      * todos los demás contarían 0 y no se podría cambiar de opinión.
      */
-    val conteoClases: StateFlow<List<ClaseConteo>> = _busqueda
-        .debounce(220L)
-        .distinctUntilChanged()
+    val conteoClases: StateFlow<List<ClaseConteo>> = consultaAsentada
         .flatMapLatest { q -> repo.conteoPorClaseFlow(q) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -89,8 +110,13 @@ class CatalogViewModel @Inject constructor(
         .map { it.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
+    /**
+     * Resultados de la grilla. El debounce va solo sobre la búsqueda: cambiar un
+     * filtro o el orden tiene que consultarse ya, no 220 ms después, porque son
+     * toques a propósito y no tecleo.
+     */
     val productos: StateFlow<List<ProductEntity>> = combine(
-        _busqueda.debounce(220L).distinctUntilChanged(),
+        consultaAsentada,
         _clases,
         _orden,
     ) { q, clases, ord -> Triple(q, clases, ord) }
@@ -98,6 +124,16 @@ class CatalogViewModel @Inject constructor(
             repo.searchFlow(q, clases.sorted(), ord.key)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** ¿Hay algo más que la búsqueda afectando el conjunto de resultados? Lo usa
+     *  el estado vacío para decir la causa correcta y ofrecer la salida. */
+    val hayFiltros: StateFlow<Boolean> = _clases
+        .map { it.isNotEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun limpiarBusqueda() {
+        _busqueda.value = ""
+    }
 
     /** Valor inicial del campo (la UI es la dueña después de esto). */
     fun busquedaInicial(): String = _busqueda.value
