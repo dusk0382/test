@@ -108,6 +108,16 @@ jobs:
       - name: Listar APKs
         run: ls -l apks
 
+      # /dev/kvm existe en los runners pero el usuario no tiene permiso: sin esto el
+      # emulador cae a emulación por software (-accel off) y el boot tarda 8-15min
+      # (o no llega). Con KVM bootea en ~1min.
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || true
+
       - name: "Emulador: instalar y abrir release y debug"
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -115,8 +125,8 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          emulator-boot-timeout: 900
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-boot-timeout: 1800
+          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             release=0; debug=0
             bash tools/smoke_apk.sh apks/app-release.apk com.dusk0382.cecosesolaprecios .MainActivity /tmp/logcat-release.txt || release=$?
