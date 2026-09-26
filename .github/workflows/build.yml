@@ -108,7 +108,7 @@ jobs:
       - name: Listar APKs
         run: ls -l apks
 
-      - name: Emulador: instalar y abrir release y debug
+      - name: "Emulador: instalar y abrir release y debug"
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
