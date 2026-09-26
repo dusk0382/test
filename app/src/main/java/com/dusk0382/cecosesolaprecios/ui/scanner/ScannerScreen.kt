@@ -34,10 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.findViewTreeLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,7 +54,6 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * Escáner EAN-13 / EAN-8 / UPC-A con CameraX + ML Kit bundled (offline, sin Play
@@ -139,13 +138,13 @@ fun ScannerScreen(
                 Text(
                     "Se necesita permiso de cámara para escanear.",
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(32.dp),
+                    modifier = Modifier.padding(Espacio.xxl),
                 )
             }
         }
         IconButton(
             onClick = onBack,
-            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+            modifier = Modifier.align(Alignment.TopEnd).padding(Espacio.s),
         ) {
             Icon(Icons.Filled.Close, "Cerrar", tint = Color.White)
         }

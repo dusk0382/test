@@ -172,6 +172,12 @@ fun Rubro.etiquetaVisible(): String = when (this) {
     else -> etiqueta
 }
 
+// Regex a nivel de archivo, no dentro de la función: formatearNombreProducto se
+// llama una vez por tarjeta y por recomposición, y `Regex("\\s+")` construye un
+// objeto nuevo (más 3-4 copias del string) en cada llamada. En un Helio G25 con
+// la grilla recomponiéndose, esa basura se nota.
+private val RE_ESPACIOS = Regex("\\s+")
+
 /**
  * Los nombres del mirror vienen mezclados: "ABONO LIQUIDO" junto a "aceite de oliva
  * extra virgen capri 250 cm3". Un nombre **enteramente** en mayúsculas se muestra en
@@ -179,7 +185,7 @@ fun Rubro.etiquetaVisible(): String = when (this) {
  * ("PREMIUM" en medio de un nombre mixto queda como esté).
  */
 fun formatearNombreProducto(nombre: String): String {
-    val limpio = nombre.replace(Regex("\\s+"), " ").trim()
+    val limpio = nombre.replace(RE_ESPACIOS, " ").trim()
     val letras = limpio.filter { it.isLetter() }
     if (letras.isEmpty() || letras != letras.uppercase()) return limpio
     return limpio.lowercase().replaceFirstChar { it.titlecase() }

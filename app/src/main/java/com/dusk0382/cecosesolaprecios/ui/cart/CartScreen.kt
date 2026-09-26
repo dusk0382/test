@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,12 +50,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.dusk0382.cecosesolaprecios.data.local.CartLine
+import com.dusk0382.cecosesolaprecios.domain.formatearNombreProducto
 import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
 import com.dusk0382.cecosesolaprecios.ui.common.LocalUsdPrecio
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.importeLinea
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
 import com.dusk0382.cecosesolaprecios.ui.common.Stepper
+import com.dusk0382.cecosesolaprecios.ui.theme.PrecioDetalle
+import com.dusk0382.cecosesolaprecios.ui.theme.PrecioApoyo
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
+import com.dusk0382.cecosesolaprecios.ui.common.PriceText
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -132,8 +138,8 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(Espacio.m),
+                    verticalArrangement = Arrangement.spacedBy(Espacio.s),
                 ) {
                     items(lineas, key = { it.productId }) { linea ->
                         CartRow(
@@ -147,9 +153,9 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
             }
 
             if (lineas.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Espacio.s))
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = Espacio.l, vertical = Espacio.s),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -163,27 +169,27 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
                             )
                         }
                     }
-                    Text(
-                        totalTexto,
-                        style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"),
-                        color = MaterialTheme.colorScheme.primary,
+                    PriceText(
+                        valor = if (mostrarTotalUsd) totalCec!! else totalBs,
+                        prefix = if (mostrarTotalUsd) "USD" else "Bs",
+                        style = PrecioDetalle,
                     )
                 }
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = Espacio.m, vertical = Espacio.s),
+                    horizontalArrangement = Arrangement.spacedBy(Espacio.s),
                 ) {
                     Button(
                         onClick = { compartirCarrito(context, lineas, usd) },
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(Espacio.s))
                         Text("Compartir")
                     }
                     OutlinedButton(onClick = { confirmarVaciar = true }) {
                         Icon(Icons.Filled.Delete, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(Espacio.s))
                         Text("Vaciar")
                     }
                 }
@@ -208,17 +214,27 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuitar: () -> Unit) {
+    // La fila se borra desde `onQuitar` en el gesto, no desde confirmValueChange:
+    // borrrar ahí competition con la animación de settle y el renglón desaparecía
+    // a media transición. Además hay un camino sin gesto: el "−" del stepper en
+    // cantidad 1 quita la línea, que es lo que necesita un lector de pantalla.
+    var descartada by remember { mutableStateOf(false) }
     val dismissState = rememberSwipeToDismissBoxState(
         positionalThreshold = { it * 0.4f },
         confirmValueChange = { valor ->
-            if (valor == SwipeToDismissBoxValue.EndToStart) { onQuitar(); true } else false
+            if (valor == SwipeToDismissBoxValue.EndToStart) descartada = true else false
         },
     )
+    if (descartada) {
+        LaunchedEffect(linea.productId) {
+            onQuitar()
+        }
+    }
     SwipeToDismissBox(
         state = dismissState,
         backgroundContent = {
             Box(
-                Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                Modifier.fillMaxSize().padding(horizontal = Espacio.l),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(Icons.Filled.Delete, "Quitar", tint = MaterialTheme.colorScheme.error)
@@ -232,23 +248,26 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(12.dp),
+                Modifier.fillMaxWidth().padding(Espacio.m),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(linea.nombre, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(formatearNombreProducto(linea.nombre), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     val (unitario, moneda) = linea.precioMostrado(usd)
-                    Text(
-                        "$moneda ${formatBs(unitario)} c/u",
-                        style = MaterialTheme.typography.labelMedium,
+                    PriceText(
+                        valor = unitario,
+                        prefix = "$moneda c/u",
+                        style = PrecioApoyo,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Stepper(cantidad = linea.quantity, onCantidad = onQty)
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    linea.importeLinea(usd),
-                    style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+                Spacer(Modifier.width(Espacio.m))
+                val (importe, monedaLinea) = linea.importeLinea(usd)
+                PriceText(
+                    valor = importe,
+                    prefix = monedaLinea,
+                    style = PrecioApoyo,
                     modifier = Modifier.width(96.dp),
                     textAlign = TextAlign.End,
                 )
@@ -267,7 +286,7 @@ private fun compartirCarrito(context: Context, lineas: List<CartLine>, usd: Bool
     sb.append("Mi carrito — precios Cecosesola\n\n")
     lineas.forEach { l ->
         val (precio, moneda) = l.precioMostrado(usd)
-        sb.append("• ${l.nombre} ×${l.quantity} = $moneda ${formatBs(precio * l.quantity)}\n")
+        sb.append("• ${formatearNombreProducto(l.nombre)} ×${l.quantity} = $moneda ${formatBs(precio * l.quantity)}\n")
     }
     val totalCec = if (usd && lineas.all { it.precioCec != null }) {
         lineas.sumOf { it.precioCec!! * it.quantity }

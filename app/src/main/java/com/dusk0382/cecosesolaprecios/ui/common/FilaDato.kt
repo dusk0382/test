@@ -8,7 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 
 /**
  * Fila etiqueta → valor (ajustes y detalle). Unificada aquí porque existía
@@ -20,7 +20,7 @@ fun FilaDato(
     valor: String,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Row(modifier = modifier.fillMaxWidth().padding(vertical = Espacio.xs)) {
         Text(
             etiqueta,
             style = MaterialTheme.typography.bodyMedium,
@@ -31,7 +31,7 @@ fun FilaDato(
             valor,
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.End,
-            modifier = Modifier.padding(start = 16.dp),
+            modifier = Modifier.padding(start = Espacio.l),
         )
     }
 }

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -34,9 +33,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.dusk0382.cecosesolaprecios.domain.formatearNombreProducto
 import com.dusk0382.cecosesolaprecios.ui.common.DeltaBadge
 import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
+import com.dusk0382.cecosesolaprecios.ui.common.PriceText
 import com.dusk0382.cecosesolaprecios.ui.common.Stepper
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
+import com.dusk0382.cecosesolaprecios.ui.theme.PrecioDetalle
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
 
@@ -73,7 +76,7 @@ fun DetailScreen(
         val prod = p ?: return@Scaffold
         Column(
             Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(Espacio.l),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             AsyncImage(
@@ -82,16 +85,16 @@ fun DetailScreen(
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.size(220.dp).clip(MaterialTheme.shapes.large),
             )
-            Spacer(Modifier.height(16.dp))
-            Text(prod.nombre, style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(Espacio.l))
+            Text(formatearNombreProducto(prod.nombre), style = MaterialTheme.typography.titleLarge)
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Espacio.m))
             val (precio, moneda) = prod.precioMostrado()
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "$moneda ${formatBs(precio)}",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"),
-                    color = MaterialTheme.colorScheme.primary,
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Espacio.m)) {
+                PriceText(
+                    valor = precio,
+                    prefix = moneda,
+                    style = PrecioDetalle,
                 )
                 DeltaBadge(prod.precioCec, prod.precioAnteriorCec) // CEC↔CEC: misma moneda
             }
@@ -104,7 +107,7 @@ fun DetailScreen(
                 prod.precioCec?.takeIf { it > 0 }?.let { "Precio solidario: ${formatBs(it)} CEC" }
             }
             if (secundario != null) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(Espacio.xs))
                 Text(
                     secundario,
                     style = MaterialTheme.typography.bodyMedium,
@@ -112,10 +115,10 @@ fun DetailScreen(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Espacio.l))
             Column(
                 Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(Espacio.s),
             ) {
                 // Datos reales solamente (DESIGN.md §3.9): presentación vacía
                 // ("item") y marca redundante con categoría no se pintan.
@@ -123,12 +126,14 @@ fun DetailScreen(
                     ?.let { FilaDato("Marca", it) }
                 prod.presentacion?.takeUnless { it.isBlank() || it.equals("item", ignoreCase = true) }
                     ?.let { FilaDato("Presentación", it) }
-                prod.categoria?.let { FilaDato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
-                prod.barcode?.let { FilaDato("Código de barras", it) }
-                prod.updatedAt?.let { FilaDato("Actualizado", it.substringBefore('T')) }
+                prod.categoria?.takeUnless { it.isBlank() }
+                    ?.let { FilaDato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
+                prod.barcode?.takeUnless { it.isBlank() }?.let { FilaDato("Código de barras", it) }
+                prod.updatedAt?.takeUnless { it.isBlank() }
+                ?.let { FilaDato("Actualizado", it.substringBefore('T')) }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Espacio.xl))
             if (qty > 0) {
                 Row(
                     Modifier.fillMaxWidth(),

@@ -3,5 +3,4 @@ HSPLcom/dusk0382/cecosesolaprecios/MainActivity;->onCreate(Landroid/os/Bundle;)V
 SPLcom/dusk0382/cecosesolaprecios/MainActivity;->onCreate(Landroid/os/Bundle;)V
 SPLcom/dusk0382/cecosesolaprecios/ui/theme/ThemeKt;->CecosesolaTheme(Landroidx/compose/runtime/Composer;I)V
 SPLcom/dusk0382/cecosesolaprecios/ui/theme/ThemeKt;->CecosesolaTheme$lambda$0(Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
-SPLcom/dusk0382/cecosesolaprecios/ui/theme/ColorKt;-><clinit>()V
 SPLcom/dusk0382/cecosesolaprecios/ui/theme/TypeKt;-><clinit>()V

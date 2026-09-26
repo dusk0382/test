@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import com.dusk0382.cecosesolaprecios.R
 import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 
@@ -45,7 +46,7 @@ fun DeltaBadge(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(Espacio.minimo),
     ) {
         Image(
             painter = painterResource(if (subio) R.drawable.ic_trending_up else R.drawable.ic_trending_down),

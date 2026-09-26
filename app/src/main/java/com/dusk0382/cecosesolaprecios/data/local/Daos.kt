@@ -4,38 +4,64 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProductDao {
 
+    /**
+     * Búsqueda + filtro por clases (multi-selección OR entre clases).
+     *
+     * `clasesCsv` es una lista separada por comas en vez de N slots fijos: la
+     * versión anterior tenía 6 parámetros `clase0..clase5` y `searchFlow` pasaba
+     * `getOrNull(0..5)`, así que al elegir 7 rubros (hay 10) la UI seguía
+     * mostrando los 7 chips y el badge "7", pero la consulta solo aplicaba los 6
+     * primeros en orden alfabético: el filtro mentía sobre el resultado.
+     * Room no acepta `List<String>` como parámetro en un @Query, y `IN (:a, :b)`
+     * con cardinalidad variable tampoco compila, así que la lista va cosida en un
+     * string y se desarma con un `,` en la condición.
+     */
     @Query(
         """
         SELECT * FROM products
-        WHERE (:query = '' OR nombreNormalizado LIKE '%' || :query || '%')
-          AND (:clase0 IS NULL OR clase = :clase0 OR clase = :clase1 OR clase = :clase2
-               OR clase = :clase3 OR clase = :clase4 OR clase = :clase5)
+        WHERE (:query = '' OR nombreNormalizado LIKE '%' || :query || '%' ESCAPE '\')
+          AND (:clasesCsv = '' OR instr(',' || :clasesCsv || ',', ',' || clase || ',') > 0)
         ORDER BY
           CASE WHEN :orden = 'precio_asc' THEN precioBs END ASC,
           CASE WHEN :orden = 'precio_desc' THEN precioBs END DESC,
-          CASE WHEN :orden = 'nombre' THEN nombreNormalizado END ASC
+          CASE WHEN :orden = 'nombre' THEN nombreNormalizado END ASC,
+          -- Sin desempate el orden no es estable entre recomposiciones: dos
+          -- productos con el mismo precio se intercambian de fila en el LazyGrid.
+          localId ASC
         """
     )
     fun searchFlow(
         query: String,
-        clase0: String?,
-        clase1: String?,
-        clase2: String?,
-        clase3: String?,
-        clase4: String?,
-        clase5: String?,
+        clasesCsv: String,
         orden: String,
     ): Flow<List<ProductEntity>>
 
-    @Query("SELECT clase, COUNT(*) AS total FROM products GROUP BY clase ORDER BY COUNT(*) DESC")
-    fun conteoPorClaseFlow(): Flow<List<ClaseConteo>>
+    /**
+     * Conteo por clase **para la consulta actual**: es el número que va junto a
+     * cada opción del filtro, y ese número tiene que ser el de lo que el usuario
+     * está viendo. La versión anterior era un `GROUP BY clase` sobre la tabla
+     * entera, así que escribiendo "leche" el selector ofrecía "Despensa (109)":
+     * un número que no era el resultado de nada. Es la mejora de mayor impacto
+     * según Baymard, y sirve de nada si el número miente.
+     *
+     * Se filtra por la búsqueda pero **no** por las clases ya seleccionadas: si
+     * se filtrara, al elegir un rubro todos los demás contarían 0 y no habría
+     * forma de cambiar de opinión.
+     */
+    @Query(
+        """
+        SELECT clase, COUNT(*) AS total FROM products
+        WHERE (:query = '' OR nombreNormalizado LIKE '%' || :query || '%' ESCAPE '\')
+        GROUP BY clase ORDER BY COUNT(*) DESC
+        """
+    )
+    fun conteoPorClaseFlow(query: String): Flow<List<ClaseConteo>>
 
     @Query("SELECT * FROM products WHERE localId = :id")
     fun byIdFlow(id: Long): Flow<ProductEntity?>
@@ -49,29 +75,12 @@ interface ProductDao {
     @Query("SELECT COUNT(*) FROM products")
     suspend fun count(): Int
 
-    @Query("SELECT repoId FROM products WHERE repoId IS NOT NULL")
-    suspend fun allRepoIds(): List<String>
-
-    @Query("SELECT * FROM products WHERE repoId = :repoId LIMIT 1")
-    suspend fun byRepoId(repoId: String): ProductEntity?
-
-    @Query("SELECT * FROM products WHERE apiId = :apiId LIMIT 1")
-    suspend fun byApiId(apiId: String): ProductEntity?
-
-    @Query("SELECT * FROM products WHERE nombreNormalizado = :normalizado LIMIT 1")
-    suspend fun byNombreNormalizado(normalizado: String): ProductEntity?
-
     @Query("SELECT * FROM products")
     suspend fun all(): List<ProductEntity>
 
     @Upsert
     suspend fun upsertAll(items: List<ProductEntity>)
 
-    @Upsert
-    suspend fun upsert(item: ProductEntity): Long
-
-    @Query("DELETE FROM products WHERE fuente = 'api'")
-    suspend fun deleteApiOnly()
 }
 
 @Dao
@@ -120,9 +129,6 @@ interface CartDao {
 
     @Query("DELETE FROM cart_items")
     suspend fun clear()
-
-    @Query("SELECT quantity FROM cart_items WHERE productId = :id")
-    suspend fun quantityOf(id: Long): Int?
 
     @Query("SELECT quantity FROM cart_items WHERE productId = :id")
     fun quantityOfFlow(id: Long): Flow<Int?>

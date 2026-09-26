@@ -16,13 +16,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
-import com.dusk0382.cecosesolaprecios.ui.catalog.RenglonProducto
+import com.dusk0382.cecosesolaprecios.ui.common.RenglonProducto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -83,8 +84,8 @@ fun FavoritesScreen(
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         contentPadding = PaddingValues(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Espacio.m),
+        verticalArrangement = Arrangement.spacedBy(Espacio.m),
     ) {
         items(favoritos, key = { it.localId }) { p ->
             RenglonProducto(

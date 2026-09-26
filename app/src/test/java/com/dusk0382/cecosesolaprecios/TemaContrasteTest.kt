@@ -96,6 +96,57 @@ class TemaContrasteTest {
     }
 
     @Test
+    fun `el precio nunca usa el naranja de marca como color de texto`() {
+        // El naranja de marca #FD4902 es relleno, no texto (DESIGN.md §3.11). Como
+        // texto sobre superficie da 3.26:1, y sobre el contenedor de la imagen
+        // 2.75:1: ninguno de los dos pasa AA. El precio se pinta con
+        // LocalColoresPrecio.acento (#B93300 en claro, 5.66:1).
+        //
+        // Estos dos pares no estaban en el test y por eso la app pudo llevar meses
+        // con el precio del detalle y del carrito en 3.26:1 con el CI en verde: la
+        // lista de pares se congeló cuando se escribió y nadie la volvió a abrir.
+        val precio = Paleta.AcentoPrecioClaro
+        val superficie = Paleta.SuperficieClaro
+        val mayor = Paleta.SuperficieMaximaClaro
+
+        verificar("acento de precio sobre surface", precio, superficie, AA_TEXTO)
+        verificar("acento de precio sobre surfaceContainerHighest", precio, mayor, AA_TEXTO)
+
+        // El naranja de marca sobre superficie no llega ni a texto grande (3:1).
+        assertTrue(
+            "el naranja de marca como texto de precio da " +
+                "${"%.2f".format(ratioContraste(Paleta.NaranjaMarca, superficie))}:1 sobre " +
+                "surface, por debajo del 3:1 de texto grande: usá LocalColoresPrecio.acento",
+            ratioContraste(Paleta.NaranjaMarca, superficie) < AA_GRANDE,
+        )
+        assertTrue(
+            "el naranja de marca sobre el contenedor de la imagen da " +
+                "${"%.2f".format(ratioContraste(Paleta.NaranjaMarca, mayor))}:1: " +
+                "no alcanza ni para un icono de 20 dp",
+            ratioContraste(Paleta.NaranjaMarca, mayor) < AA_GRANDE,
+        )
+    }
+
+    @Test
+    fun `el acento de precio se lee igual en tema claro y oscuro`() {
+        // El precio es el elemento más grande de cada pantalla. Si el token no
+        // llegara a 4.5:1 en oscuro, la app "anda bien en claro" y es ilegible de
+        // noche, que es el escenario real de una feria.
+        verificar(
+            "acento de precio sobre surface (claro)",
+            Paleta.AcentoPrecioClaro, Paleta.SuperficieClaro, AA_TEXTO,
+        )
+        verificar(
+            "acento de precio sobre surface (oscuro)",
+            Paleta.AcentoPrecioOscuro, Paleta.SuperficieOscura, AA_TEXTO,
+        )
+        verificar(
+            "acento de precio sobre surfaceContainerHighest (oscuro)",
+            Paleta.AcentoPrecioOscuro, Paleta.SuperficieMaximaOscura, AA_TEXTO,
+        )
+    }
+
+    @Test
     fun `las superficies distinguen niveles sin depender de sombras`() {
         // La jerarquia se hace con tono, no con bordes de color ni sombras
         // (DESIGN.md §3.2): si los niveles de superficie son iguales, no hay jerarquia.

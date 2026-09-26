@@ -1,10 +1,14 @@
 package com.dusk0382.cecosesolaprecios.ui.common
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextAlign
 import androidx.compose.ui.text.TextStyle
+import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
+import com.dusk0382.cecosesolaprecios.ui.theme.PrecioTarjeta
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.text.SimpleDateFormat
@@ -31,17 +35,40 @@ fun formatBs(valor: Double): String = numberFormat.get()!!.format(valor)
 fun formatFechaHora(millis: Long): String =
     fechaFormat.get()!!.format(Date(millis))
 
-/** Precio con numerales tabulares para que las cifras no bailen al alinearse. */
+/**
+ * Precio con numerales tabulares para que las cifras no bailen al alinearse.
+ *
+ * Es el ÚNICO lugar donde se pinta un precio: catálogo, detalle y carrito pasan
+ * por acá. Antes cada pantalla escribía su propio `Text` con su propio color y su
+ * propio `.copy(fontFeatureSettings = "tnum")` inlineado, y por eso el precio del
+ * detalle salió en `colorScheme.primary` (naranja de marca, 3.26:1 — falla AA)
+ * mientras el de la tarjeta usaba el token de acento (5.66:1). Dos precios, dos
+ * reglas, y la que no cumplía era justo la más importante.
+ *
+ * El color por defecto es el token de acento del precio, no `primary`: el
+ * naranja de marca es relleno (DESIGN.md §3.11).
+ *
+ * El `formatBs` va en `remember` porque el precio se recompone en cada cambio de
+ * estado de la pantalla y `DecimalFormat.format` no es gratis.
+ */
 @Composable
 fun PriceText(
     valor: Double,
     prefix: String = "Bs",
-    style: TextStyle = MaterialTheme.typography.titleMedium,
-    color: Color = MaterialTheme.colorScheme.onSurface,
+    modifier: Modifier = Modifier,
+    style: TextStyle = PrecioTarjeta,
+    color: Color = LocalColoresPrecio.current.acento,
+    textAlign: TextAlign? = null,
 ) {
+    val texto = remember(valor, prefix) {
+        val numero = formatBs(valor)
+        if (prefix.isBlank()) numero else "$prefix $numero"
+    }
     Text(
-        text = "$prefix ${formatBs(valor)}",
-        style = style.copy(fontFeatureSettings = "tnum"),
+        text = texto,
+        modifier = modifier,
+        style = style,
         color = color,
+        textAlign = textAlign,
     )
 }

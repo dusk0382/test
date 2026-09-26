@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,23 +29,15 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedButton
@@ -56,30 +47,27 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.dusk0382.cecosesolaprecios.R
-import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 import com.dusk0382.cecosesolaprecios.domain.Rubro
 import com.dusk0382.cecosesolaprecios.domain.etiquetaVisible
-import com.dusk0382.cecosesolaprecios.domain.formatearNombreProducto
-import com.dusk0382.cecosesolaprecios.ui.common.PriceText
-import com.dusk0382.cecosesolaprecios.ui.common.Stepper
-import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
-import com.dusk0382.cecosesolaprecios.ui.theme.AltoImagenTarjeta
+import com.dusk0382.cecosesolaprecios.ui.common.RenglonProducto
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
-import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 
 /**
  * Catálogo según DESIGN.md §7: buscador + botón de filtros con badge + FAB de
@@ -109,6 +97,16 @@ fun CatalogScreen(
     // y el debounce decide cuándo reconsultar.
     var query by rememberSaveable { mutableStateOf(vm.busquedaInicial()) }
     var filtrosAbiertos by rememberSaveable { mutableStateOf(false) }
+
+    // `rememberSaveable` sobrevive a la muerte de proceso, el ViewModel no: al
+    // volver el campo mostraba la búsqueda restaurada mientras la grilla
+    // consultaba con `_busqueda = ""`. El usuario veía un listado que no
+    // correspondía a lo que había escrito, y no había forma de saber por qué.
+    // En un Helio G25 de 2–3 GB el recorte de memoria es routinely, no una
+    // excepción, así que esto no es un caso de borde.
+    LaunchedEffect(Unit) {
+        if (query != vm.busquedaInicial()) vm.onBusquedaChange(query)
+    }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -241,6 +239,7 @@ private fun CampoBusqueda(
     onChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val hayTexto = query.isNotEmpty()
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -254,14 +253,32 @@ private fun CampoBusqueda(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = Espacio.l).size(20.dp),
         )
-        androidx.compose.foundation.text.BasicTextField(
-            value = query,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-            modifier = Modifier.weight(1f).padding(horizontal = Espacio.s),
-        )
-        if (query.isNotEmpty()) {
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            // Placeholder dibujado a mano, dentro del campo: sin composable extra
+            // y sin el padding que mete un `TextField` decorado.
+            if (!hayTexto) {
+                Text(
+                    "Buscar producto",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            androidx.compose.foundation.text.BasicTextField(
+                value = query,
+                onValueChange = onChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                // `BasicTextField` no expone `label`: sin esto TalkBack anuncia
+                // "campo de texto" y nada más, sin decir de qué.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Espacio.s)
+                    .semantics { contentDescription = "Buscar producto" },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            )
+        }
+        if (hayTexto) {
             IconButton(onClick = { onChange("") }) {
                 Icon(
                     Icons.Filled.Close,
@@ -275,7 +292,8 @@ private fun CampoBusqueda(
     }
 }
 
-/** Placeholder del buscador: lo dibuja el propio campo (sin composable extra). */
+/** Estado vacío del catálogo. La causa importa: "no hay datos" y "tus filtros
+ *  no dejan nada" piden acciones distintas y el mensaje las confunde. */
 @Composable
 private fun EstadoVacio(total: Int, yaRefrescado: Boolean) {
     Box(Modifier.fillMaxSize().padding(Espacio.xxl), contentAlignment = Alignment.Center) {
@@ -350,125 +368,6 @@ private fun HojaFiltros(
                     )
                 }
             }
-        }
-    }
-}
-
-/**
- * El primitivo único (DESIGN.md §4): imagen 1:1 sobre contenedor tonal, nombre
- * a 2 líneas, precio grande con cifras tabulares y control de carrito. Sin
- * categoría, sin marca, sin borde — la jerarquía la hacen el tono y el tamaño.
- */
-@Composable
-fun RenglonProducto(
-    producto: ProductEntity,
-    cantidad: Int,
-    esFavorito: Boolean,
-    onCantidad: (Int) -> Unit,
-    onFavorito: () -> Unit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Column {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(AltoImagenTarjeta)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-            ) {
-                AsyncImage(
-                    model = producto.imagenUrl ?: producto.imagenGrandeUrl,
-                    contentDescription = null, // el nombre ya está en texto: no duplicar para el lector
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().padding(Espacio.s),
-                )
-                IconoFavorito(
-                    activo = esFavorito,
-                    onClick = onFavorito,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(Espacio.xs),
-                )
-            }
-            Column(Modifier.padding(Espacio.s)) {
-                Text(
-                    text = formatearNombreProducto(producto.nombre),
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().height(40.dp),
-                )
-                Spacer(Modifier.height(Espacio.minimo))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    val (precio, moneda) = producto.precioMostrado()
-                    PriceText(
-                        valor = precio,
-                        prefix = moneda,
-                        color = LocalColoresPrecio.current.acento,
-                    )
-                    ControlCarrito(
-                        cantidad = cantidad,
-                        onCantidad = onCantidad,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Corazón del primitivo: 40dp de área táctil, icono 20dp, sin ruido visual. */
-@Composable
-private fun IconoFavorito(
-    activo: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier
-            .size(40.dp)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            if (activo) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-            contentDescription = if (activo) "Quitar de favoritos" else "Agregar a favoritos",
-            tint = if (activo) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-/**
- * El control de carrito en el mismo lugar siempre (Baymard: consistencia entre
- * ítems): botón "+" cuando no está en el carrito, stepper cuando sí. Cambiar
- * de uno a otro es el mismo espacio, no un layout nuevo.
- */
-@Composable
-private fun ControlCarrito(
-    cantidad: Int,
-    onCantidad: (Int) -> Unit,
-) {
-    if (cantidad > 0) {
-        Stepper(cantidad = cantidad, onCantidad = onCantidad)
-    } else {
-        FilledIconButton(
-            onClick = { onCantidad(1) },
-            modifier = Modifier.size(40.dp),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = "Agregar al carrito", modifier = Modifier.size(20.dp))
         }
     }
 }

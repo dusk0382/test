@@ -65,8 +65,19 @@ class CatalogViewModel @Inject constructor(
      * Conteo por clase para el selector de filtros. Baymard (ver DESIGN.md §7):
      * el conteo junto a cada opción es la mejora de mayor impacto en una UI de
      * filtros, y la multi-selección evita la fricción de la selección única.
+     *
+     * Depende de la búsqueda: el número tiene que ser el de los resultados que
+     * el usuario está viendo. Con un `GROUP BY` sobre la tabla entera, escribir
+     * "leche" seguía ofreciendo "Despensa (109)" — un número que no era el
+     * resultado de nada, que es justo lo que hace que una opción se descarte.
+     *
+     * No depende de las clases ya elegidas: si dependiera, al elegir un rubro
+     * todos los demás contarían 0 y no se podría cambiar de opinión.
      */
-    val conteoClases: StateFlow<List<ClaseConteo>> = repo.conteoPorClaseFlow()
+    val conteoClases: StateFlow<List<ClaseConteo>> = _busqueda
+        .debounce(220L)
+        .distinctUntilChanged()
+        .flatMapLatest { q -> repo.conteoPorClaseFlow(q) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Cantidad por producto en el carrito, para el stepper de la tarjeta. */

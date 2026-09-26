@@ -43,23 +43,20 @@ class ProductRepository @Inject constructor(
     // — lecturas (Room-first; la UI nunca toca la red) —
 
     /**
-     * Búsqueda + filtro por hasta 6 clases (multi-selección OR). El DAO usa 6
-     * slots fijos en vez de `IN (...)` dinámico porque Room no acepta listas
-     * como parámetro; null = sin filtro en ese slot.
+     * Búsqueda + filtro por clases (multi-selección OR entre clases, AND con la
+     * búsqueda). Sin tope de clases: la UI deja elegir varias y el filtro tiene
+     * que aplicar todas las que haya.
      */
     fun searchFlow(query: String, clases: List<String>, orden: String): Flow<List<ProductEntity>> =
-        productDao.searchFlow(
-            normalizarNombre(query),
-            clases.getOrNull(0),
-            clases.getOrNull(1),
-            clases.getOrNull(2),
-            clases.getOrNull(3),
-            clases.getOrNull(4),
-            clases.getOrNull(5),
-            orden,
-        )
+        productDao.searchFlow(escaparLike(consultaDeBusqueda(query)), clases.joinToString(","), orden)
 
-    fun conteoPorClaseFlow(): Flow<List<ClaseConteo>> = productDao.conteoPorClaseFlow()
+    /**
+     * Conteo por clase para la consulta actual — el número que se muestra junto a
+     * cada opción del filtro tiene que ser el de los resultados que el usuario
+     * está viendo, no el del catálogo entero.
+     */
+    fun conteoPorClaseFlow(query: String): Flow<List<ClaseConteo>> =
+        productDao.conteoPorClaseFlow(escaparLike(consultaDeBusqueda(query)))
 
     fun byIdFlow(id: Long): Flow<ProductEntity?> = productDao.byIdFlow(id)
     fun countFlow(): Flow<Int> = productDao.countFlow()
@@ -206,5 +203,23 @@ class ProductRepository @Inject constructor(
 
     private companion object {
         const val TAG = "CecoSync"
+
+        /**
+         * Consulta de búsqueda ya normalizada (minúsculas, sin acentos), que es
+         * como está la columna `nombreNormalizado`.
+         */
+        fun consultaDeBusqueda(query: String): String = normalizarNombre(query)
+
+        /**
+         * Escapa los comodines de `LIKE` antes de mandarlos a la consulta. Sin
+         * esto, escribir `%` en el buscador traía los 518 productos y `_`
+         * emparejaba cualquier carácter: un `%` es un carácter perfectly normal
+         * en un nombre de producto ("QUESO 100%") y el usuario lo escribe sin
+         * saber que está disparando un comodín.
+         */
+        fun escaparLike(texto: String): String = texto
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
     }
 }
