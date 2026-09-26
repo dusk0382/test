@@ -68,6 +68,14 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
+      # mapping.txt de R8: sin él, una traza del release es ilegible (todo `a.b.c`).
+      - name: Subir mapping de R8 (retrazado)
+        uses: actions/upload-artifact@v4
+        with:
+          name: r8-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn
+
       # Solo al empujar un tag v* (p.ej. git tag v1.0 && git push origin v1.0):
       # los APKs quedan como assets descargables directos, sin zip ni artifact.
       - name: Publicar Release (solo tags v*)
@@ -78,3 +86,49 @@ jobs:
           files: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
+
+  # Prueba de humo real: instala los APKs en un emulador y comprueba que la app
+  # arranca (release minificado incluido). Sin esto, un crash de release solo se
+  # descubre cuando el usuario instala el APK en su teléfono.
+  smoke:
+    name: Arranque en emulador
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descargar APKs del build
+        uses: actions/download-artifact@v4
+        with:
+          pattern: apk-*
+          path: apks
+          merge-multiple: true
+
+      - name: Listar APKs
+        run: ls -l apks
+
+      - name: Emulador: instalar y abrir release y debug
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            release=0; debug=0
+            bash tools/smoke_apk.sh apks/app-release.apk com.dusk0382.cecosesolaprecios .MainActivity /tmp/logcat-release.txt || release=$?
+            adb uninstall com.dusk0382.cecosesolaprecios > /dev/null 2>&1 || true
+            bash tools/smoke_apk.sh apks/app-debug.apk com.dusk0382.cecosesolaprecios.debug .MainActivity /tmp/logcat-debug.txt || debug=$?
+            echo "### resultado: release=$release debug=$debug (0 = arranca sin crash)"
+            [ "$release" = 0 ] && [ "$debug" = 0 ]
+
+      - name: Subir logcat del arranque
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logcat-arranque
+          path: /tmp/logcat-*.txt
+          if-no-files-found: warn
