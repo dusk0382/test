@@ -12,7 +12,7 @@ package com.dusk0382.cecosesolaprecios.ui.theme
  *   sobre él da 3.43:1 y **falla** AA para texto normal; por eso el texto de los
  *   botones primarios es tinta oscura (#2A1200, 5.17:1).
  * - El precio en tarjeta usa un naranja oscuro (#B93300, 5.66:1 sobre superficie)
- *   en claro y uno claro (#FFB59B, 8.14:1) en oscuro.
+ *   en claro y uno claro (#FFB59B, 10.07:1) en oscuro.
  * - Los roles secundario/terciario estaban **sin definir**, así que caían al
  *   baseline lila/violeta de Material3: de ahí el buscador rosado de la versión
  *   anterior. Ahora son neutros cálidos de la misma familia que la marca.
@@ -71,8 +71,8 @@ internal object Paleta {
     const val SobreTerciarioContenedorOscuro = 0xFFEFE0D9L
 
     // — semántica de variación de precio (siempre CEC contra CEC) —
-    const val SubeClaro = 0xFFBA1A1AL         // 6.46:1
-    const val BajaClaro = 0xFF1B6C34L         // 6.48:1
+    const val SubeClaro = 0xFFBA1A1AL         // 6.16:1
+    const val BajaClaro = 0xFF1B6C34L         // 6.17:1
     const val SubeOscuro = 0xFFFFB4ABL        // 10.10:1
     const val BajaOscuro = 0xFF7FD69AL        // 9.79:1
 
