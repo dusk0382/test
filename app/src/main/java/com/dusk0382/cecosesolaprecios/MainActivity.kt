@@ -197,7 +197,17 @@ private fun AppNav(mainVm: MainViewModel) {
                     CatalogScreen(
                         vm = catalogVm,
                         onOpenDetail = { id -> navController.navigate(Routes.detalle(id)) },
-                        onScan = { navController.navigate(Routes.ESCANER) },
+                        // `launchSingleTop`: el FAB sigue siendo tocable durante
+                        // los 150ms de la transición de salida, y un doble toque
+                        // empujaba DOS entradas de ESCANER. La segunda al hacer
+                        // `unbindAll()` (que es global al proceso) le desataba la
+                        // cámara a la primera, y como la primera ya tenía su
+                        // marcador de vinculado, no podía volver a engancharse:
+                        // pantalla en negro sin cámara y sin análisis, para
+                        // siempre. Con una sola entrada, el caso no existe.
+                        onScan = {
+                            navController.navigate(Routes.ESCANER) { launchSingleTop = true }
+                        },
                         onSettings = { navController.navigate(Routes.AJUSTES) },
                     )
                 }
