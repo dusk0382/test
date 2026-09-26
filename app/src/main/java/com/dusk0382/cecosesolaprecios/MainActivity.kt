@@ -145,7 +145,13 @@ private fun AppNav() {
                                         // en vez de un corte: el indicador de la barra
                                         // puede animar (DESIGN.md §5) y 150ms alcanza
                                         // para que se note el cambio sin distraer.
-                                        AnimatedVisibility(
+                                        //
+                                        // Calificado a propósito: el slot `badge` de
+                                        // BadgedBox es un RowScope, y ahí
+                                        // `AnimatedVisibility` resuelve a la extensión
+                                        // de RowScope, que no compila sin receptor
+                                        // explícito. Se pide la de nivel superior.
+                                        androidx.compose.animation.AnimatedVisibility(
                                             visible = d == Dest.Carrito && cartCount > 0,
                                             enter = fadeIn(),
                                             exit = fadeOut(),
