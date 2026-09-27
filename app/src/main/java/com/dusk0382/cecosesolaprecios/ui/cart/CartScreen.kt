@@ -260,14 +260,27 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(formatearNombreProducto(linea.nombre), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    val (unitario, moneda) = linea.precioMostrado(usd)
-                    PriceText(
-                        valor = unitario,
-                        prefix = "$moneda c/u",
-                        style = PrecioApoyo,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Text(
+                        text = formatearNombreProducto(linea.nombre),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
+                    // El precio por unidad **solo si la cantidad no es 1**. Con una
+                    // unidad, el "Bs 855 c/u" y el importe de la línea son el mismo
+                    // número impreso dos veces en la misma fila, y en el screenshot
+                    // se leía "USD c/u 2,1" a la izquierda con "USD 2,1" a la
+                    // derecha: ruido puro. Con 2 o más unidades el precio unitario
+                    // sí aporta información y se muestra.
+                    if (linea.quantity > 1) {
+                        val (unitario, moneda) = linea.precioMostrado(usd)
+                        PriceText(
+                            valor = unitario,
+                            prefix = "$moneda c/u",
+                            style = PrecioApoyo,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 Stepper(cantidad = linea.quantity, onCantidad = onQty)
                 Spacer(Modifier.width(Espacio.m))

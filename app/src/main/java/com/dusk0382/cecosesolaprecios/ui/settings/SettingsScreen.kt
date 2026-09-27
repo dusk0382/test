@@ -41,6 +41,7 @@ import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
 import com.dusk0382.cecosesolaprecios.ui.MainViewModel
 import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
+import com.dusk0382.cecosesolaprecios.ui.common.formatearFechaMirror
 import com.dusk0382.cecosesolaprecios.ui.common.formatFechaHora
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -167,7 +168,11 @@ fun SettingsScreen(
         ) {
             Seccion("Datos")
             val pendiente = if (estado.cargado) "nunca" else "leyendo…"
-            FilaDato("Lista base (mirror)", estado.fechaRepo ?: pendiente)
+            // El mirror guarda "2026-09-26 19:00:24" crudo y la API oficial guarda
+            // epoch millis. Mostrar uno en ISO y el otro con "26/09/2026 a las
+            // 01:43" en la misma columna era directamente comparable en el
+            // screenshot y no encajaba. Los dos pasan por el mismo formateador.
+            FilaDato("Lista base (mirror)", estado.fechaRepo?.let(::formatearFechaMirror) ?: pendiente)
             FilaDato(
                 "Enriquecido (oficial)",
                 estado.milisApi?.let(::formatFechaHora) ?: pendiente,

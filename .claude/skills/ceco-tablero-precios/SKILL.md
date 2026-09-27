@@ -190,6 +190,47 @@ Y dos cosas más que no son bugs pero conviene no romper:
   código de lo que acabás de escanear tiene que encontrarlo. La lógica pura vive
   en `data/repository/Busqueda.kt` y está en `BusquedaTest`.
 
+## Los cuatro bugs que mostraban los screenshots
+
+Los encontró una revisión visual del APK instalado. Se anotan porque son la clase
+de defecto que no se ve leyendo el código: los cuatro **compilan, pasan los tests y
+el lint**.
+
+1. **El "+" del carrito quedaba cortado contra el borde de la tarjeta.** En una
+   tarjeta de dos columnas (~158dp) el precio (~95dp) y el stepper (2 botones +
+   cifra) medían 215dp. La causa era un `Modifier.size(48.dp)` que yo mismo había
+   puesto en los botones: `IconButton` ya aplica `minimumInteractiveComponentSize()`
+   y después su propio `size(40.dp)`, así que el objetivo táctil **ya es de 48dp
+   sin tocar nada**. Fijar 48dp desde el caller no cambia el dibujo (el `size` de M3
+   se aplica al final de la cadena) pero sí reserva 48dp de fila para dibujar 40.
+   El resultado en pantalla era una astilla vertical, y el producto era casi
+   inagregable. **No pongas `size()` en un botón de icono: dejá que M3 lo haga.**
+   `tools/ui_checks.py` lo verifica.
+2. **"Ferias" se dibujaba apilada, una letra por renglón.** En un `Row`, los hijos
+   sin peso se miden primero con el ancho completo y el peso se reparte con lo que
+   sobra. `FilaDato` tenía `weight(1f)` en la etiqueta y **ninguna restricción en el
+   valor**: un valor largo ("Feria Del Centro, Feria de Ruiz Pineda, …") se
+   llevaba la fila y a la etiqueta le quedaba el ancho de un carácter. Si algo
+   flexible convive con algo sin límite, el sin límite gana.
+3. **Decimales desiguales en una columna de precios.** El patrón era `#,##0.##`:
+   "2,1" al lado de "6,42" y "5,05". En un cartel de precios la comparación es de un
+   vistazo y eso rompe la alineación. El dinero va con **dos decimales siempre**.
+4. **"USD" etiquetando números que son CEC.** El toggle de Ajustes decía "Mostrar
+   precios en USD" y las tarjetas decían "USD 2,1", pero el valor es el precio
+   solidario en unidades CEC — el propio payload lo dice
+   (`priceBase.currencyCode == "CEC"`). Ponerle USD mentía dos veces: la etiqueta
+   y el total del carrito, que suma esos mismos números. Ahora dice **CEC**.
+
+Y dos cosas que son de jerarquía, no de función:
+
+- El precio y el stepper competían en la misma línea, y **ganaba el stepper**: dos
+  círculos de 48dp son visualmente más fuertes que el número, en una pantalla cuyo
+  propósito es leer precios. El precio quedó en su propia línea y el control debajo,
+  alineado a la derecha y con altura constante.
+- El corazón de favorito usaba el token de acento de precio. Ese token está
+  reservado al precio (§5): con seis favoritos la fila de corazones brillaba más
+  que los precios. Un favorito tampoco es un `error`. Va `onSurfaceVariant`.
+
 ## Insets: la trampa del Scaffold anidado
 
 `MainActivity` tiene un `Scaffold` con `contentWindowInsets` por defecto

@@ -116,23 +116,57 @@ fun CatalogScreen(
     }
 
     // Un cambio de búsqueda, de filtros o de orden cambia **el conjunto de
-    // resultados**, así que la grilla tiene que volver al principio.
+    // resultados**, y qué hacer con el scroll depende de cuál de los dos casos sea.
     //
     // Lo que pasaba antes: la grilla sin `state` explícito conserva un
-    // `rememberLazyGridState()` interno que sobrevive a los cambios de contenido.
-    // Al filtrar a 3 resultados el índice del ancla se mantenía, y al limpiar el
-    // campo la lista se re-expandía a 518 con el usuario en la mitad del
-    // catálogo, justo donde estaba antes de filtrar. "Como si se hubiera
-    // scrolleado" era el síntoma, y era el estado, no la animación.
+    // `rememberLazyGridState()` interno que sobrevive a los cambios de contenido, así
+    // que al filtrar a pocos resultados el índice del ancla se mantenía y al
+    // limpiar la búsqueda la lista se re-expandía con el usuario en la mitad del
+    // catálogo, justo donde estaba antes de filtrar. Se veía como "se scrolleó
+    // solo", y era el estado, no la animación.
+
+    // Una sola cadena que identifica el conjunto de resultados: consulta
+    // normalizada + clases ordenadas + orden. El separador evita que dos
+    // combinaciones distintas den la misma clave.
+    val claveFiltros = remember(query, clasesSel, orden) {
+        listOf(query.trim().lowercase(), clasesSel.sorted().joinToString(","), orden.key)
+            .joinToString("|")
+    }
+    val hayResultados = productos.isNotEmpty()
+
+    val gridState = rememberLazyGridState()
+
+    // Memoria de scroll por conjunto de filtros.
     //
-    // `key(...) { rememberLazyGridState() }` en vez de un
-    // `LaunchedEffect { scrollToItem(0) }`: cambiar las claves descarta el slot del
-    // `remember` y la grilla arranca en 0 siempre. Con `LaunchedEffect` había que
-    // llamar `scrollToItem` sobre un estado que puede no estar montado —si la
-    // búsqueda no deja resultados la grilla no está compuesta— y depender de que
-    // el scroll pendiente se aplique al volver a adjuntarse. `key` no depende de
-    // nada: es 0 por construcción.
-    val gridState = key(query, clasesSel, orden) { rememberLazyGridState() }
+    // El caso que motiva esto: el usuario scrollea hasta el producto 60, escribe
+    // "leche", mira los 3 resultados, y limpia el campo. Lo razonable es volver
+    // exactamente al punto donde estaba, con el mismo producto a la vista. Antes
+    // el `key(query, …) { rememberLazyGridState() }` descartaba el estado en cada
+    // cambio de búsqueda, así que volvía al principio: había que volver a bajar
+    // veinte pantallas.
+    //
+    // Y al escribir una búsqueda nueva, lo razonable es el principio: el resultado
+    // es otro conjunto y el índice anterior no significa nada. Por eso la
+    // posición se guarda por clave, no una sola: la clave de la búsqueda anterior
+    // conserva su índice, y la nueva arranca en 0 salvo que ya se haya usado.
+    // `mutableMapOf` a propósito, no `mutableStateMapOf`: esto no es estado de UI,
+    // es un registro de consulta, y escribirlo no debe invalidar nada.
+    val posiciones = remember { mutableMapOf<String, Int>() }
+    var ultimaClave by remember { mutableStateOf(claveFiltros) }
+
+    // `hayResultados` va en las claves a propósito: si la búsqueda no deja nada,
+    // la grilla no está compuesta, y un `scrollToItem` sobre un estado desadjuntado
+    // depende de que el scroll pendiente se aplique al volver a montarla. Al
+    // aparecer la grilla de nuevo, el efecto corre con ella ya en composición.
+    LaunchedEffect(claveFiltros, hayResultados) {
+        if (ultimaClave != claveFiltros) {
+            posiciones[ultimaClave] = gridState.firstVisibleItemIndex
+            ultimaClave = claveFiltros
+        }
+        if (hayResultados) {
+            gridState.scrollToItem(posiciones[claveFiltros] ?: 0)
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {

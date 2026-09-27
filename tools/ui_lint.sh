@@ -70,9 +70,10 @@ python3 tools/imports.py || fail=1
 # buscar el contentDescription de las líneas siguientes.
 python3 tools/ui_checks.py || fail=1
 
-# Accesibilidad: el área táctil mínima. 40dp por debajo de 48dp no cumple.
-chk "sin áreas táctiles de 40dp (el mínimo es 48)" "size\(40\.dp\)" \
-    $UI_FILES 2>/dev/null || true
+# El area tactil y el `size()` explicito en los botones los revisa ui_checks.py,
+# que puede distinguir el control de su icono. Con grep no se puede: `Icon(...,
+# modifier = Modifier.size(20.dp))` es legitimo (es el icono dentro de un boton de
+# 48dp) y `IconButton(modifier = Modifier.size(48.dp))` es un error.
 
 if [ "$fail" -eq 0 ]; then
     echo "---"

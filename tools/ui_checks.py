@@ -46,7 +46,12 @@ def _llamada_completa(lineas: list[str], i: int, desde: int) -> str:
         trozo = lineas[j][desde:] if j == i else lineas[j]
         texto += trozo
         profundidad += trozo.count("(") - trozo.count(")")
-        if profundidad <= 0 and (j > i or trozo.rstrip().endswith(")")):
+        # Solo el balance de parentesis. La condicion anterior tambien exigia que
+        # la linea terminara en ")": con una lambda final
+        # (`IconButton(onClick = { … }) { … }`) la linea cierra en ")" pero
+        # TERMINA en "{", asi que no cortaba ahi y se comia el `modifier` del Icon
+        # de adentro, reportando un boton que no tenia size() propio.
+        if profundidad <= 0:
             return texto
         desde = 0
     return texto
@@ -107,14 +112,48 @@ def revisar_precio(archivo: Path, lineas: list[str]) -> None:
             HALLAZGOS.append((archivo, i + 1, "precio pintado con un Text propio; usá PriceText"))
 
 
+# Botones de icono: no se les pone `size()` propio.
+#
+# `IconButton` y familia ya aplican `minimumInteractiveComponentSize()` y luego su
+# propio `size(40.dp)`, así que el objetivo tactil ya es de 48dp sin que el caller
+# intervenga. Poner `size(48.dp)` desde el caller no cambia el dibujo —el `size` del
+# caller llega antes en la cadena y el de M3 se aplica al final— pero si reserva
+# 48dp de fila para dibujar 40. En la tarjeta de catalogo (unos 158dp) el precio mas
+# el stepper median 215dp y el boton "+" quedaba cortado contra el borde: en el
+# screenshot se veia como una astilla vertical, y el producto era casi inagregable.
+CONTROLES_ICONO = re.compile(
+    r"(?<![A-Za-z])(?:IconButton|OutlinedIconButton|FilledIconButton|IconToggleButton)\s*\("
+)
+
+
+def revisar_boton(archivo: Path, lineas: list[str]) -> None:
+    for i, linea in enumerate(lineas):
+        m = CONTROLES_ICONO.search(linea)
+        if not m:
+            continue
+        texto = _llamada_completa(lineas, i, m.start())
+        # Solo el primer argumento con nombre `modifier`, que es el del control.
+        propio = re.search(r"modifier\s*=\s*([^,)]*)", texto)
+        if propio and re.search(r"\.size\s*\(", propio.group(1)):
+            HALLAZGOS.append(
+                (
+                    archivo,
+                    i + 1,
+                    "size() explicito en un boton de icono: M3 ya pone el tamano y "
+                    "el objetivo tactil; fijarlo reserva mas fila de la que dibuja",
+                )
+            )
+
+
 for archivo in archivos:
     crudo = archivo.read_text(encoding="utf-8")
     lineas = [quitar_comentario(l) for l in crudo.splitlines()]
     revisar_icon(archivo, lineas)
     revisar_precio(archivo, lineas)
+    revisar_boton(archivo, lineas)
 
 if not HALLAZGOS:
-    print("✓ los precios se pintan con PriceText y ningún Icon quedó sin etiqueta")
+    print("✓ precios con PriceText, Icon con etiqueta, botones sin size() propio")
     sys.exit(0)
 
 for archivo, linea, msg in HALLAZGOS:

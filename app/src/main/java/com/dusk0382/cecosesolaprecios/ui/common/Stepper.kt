@@ -5,7 +5,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedIconButton
@@ -29,9 +28,19 @@ import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
  *
  * Los dos botones usan `Text("−")` / `Text("+")` y no iconos (diseño: un "−"
  * tipográfico es más legible que un ícono de flecha a 20dp), pero eso sin
- * semántica le decía a TalkBack "menos" y "más" sin decir de qué ni cuántas
- * unidades hay. Cada botón lleva su descripción y la cifra lleva la cantidad como
- * estado, para que "3" no se lea como un número suelto.
+ * semántica le diría a TalkBack "menos" y "más" sin decir de qué ni cuántas
+ * unidades hay. Cada botón lleva su descripción y la cifra lleva la cantidad
+ * como estado, para que "3" no se lea como un número suelto.
+ *
+ * **No se fija un tamaño explícito en los botones, a propósito.** `IconButton`
+ * ya aplica `minimumInteractiveComponentSize()` antes de `size(40.dp)`, o sea
+ * que el objetivo táctil es de 48 dp igual, pero el círculo dibujado mide 40 y la
+ * fila reserva 40 en vez de 48. Poner `size(48.dp)` desde acá —que es lo que
+ * hacía— reservaba 48 dp por botón para dibujar 40: en la tarjeta de catálogo
+ * (unos 158 dp de ancho) el precio más los tres elementos del stepper medían
+ * 215 dp, y el botón "+" quedaba cortado contra el borde. El screenshot lo
+ * mostraba como una astilla vertical, es decir el producto era casi
+ * inagregable al carrito.
  */
 @Composable
 fun Stepper(
@@ -48,9 +57,7 @@ fun Stepper(
     ) {
         OutlinedIconButton(
             onClick = { onCantidad(cantidad - 1) },
-            modifier = Modifier
-                .size(Espacio.toqueMinimo)
-                .semantics { contentDescription = "Quitar uno" },
+            modifier = Modifier.semantics { contentDescription = "Quitar uno" },
         ) {
             Text("−", style = MaterialTheme.typography.titleMedium)
         }
@@ -58,19 +65,13 @@ fun Stepper(
             text = "$cantidad",
             style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
             textAlign = TextAlign.Center,
-            // La cantidad se anuncia como estado del propio número, no como
-            // `mergeDescendants` en el Row: fusionar los descendientes del Row
-            // convertiría los dos botones en un único nodo y TalkBack no podría
-            // enfocarlos por separado, que es justo lo que se quería arreglar.
             modifier = Modifier
                 .width(Espacio.xl)
                 .semantics { stateDescription = "$cantidad en el carrito" },
         )
         OutlinedIconButton(
             onClick = { onCantidad(cantidad + 1) },
-            modifier = Modifier
-                .size(Espacio.toqueMinimo)
-                .semantics { contentDescription = "Agregar uno" },
+            modifier = Modifier.semantics { contentDescription = "Agregar uno" },
         ) {
             Text("+", style = MaterialTheme.typography.titleMedium)
         }
