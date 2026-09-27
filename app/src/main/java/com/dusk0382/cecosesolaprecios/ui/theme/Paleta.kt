@@ -70,7 +70,7 @@ internal object Paleta {
     const val TerciarioContenedorOscuro = 0xFF3E2E28L
     const val SobreTerciarioContenedorOscuro = 0xFFEFE0D9L
 
-    // — semántica de variación de precio (siempre CEC contra CEC) —
+    // — semántica de variación de precio (misma moneda de un lado a otro) —
     const val SubeClaro = 0xFFBA1A1AL         // 6.16:1
     const val BajaClaro = 0xFF1B6C34L         // 6.17:1
     const val SubeOscuro = 0xFFFFB4ABL        // 10.10:1

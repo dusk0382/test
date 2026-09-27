@@ -1,6 +1,7 @@
 ---
 name: ceco-precios-datos
-description: Reglas de la fusión de las dos fuentes de precios de Cecosesola (mirror GitHub + GraphQL oficial). Úsala al tocar MergeEngine, ProductRepository, los DTOs, los workers de sync, los DAOs o el modelo de datos. Cubre el contrato de monedas Bs vs CEC, la regla de no perder productos, y por qué el fixture real es la única verdad al parsear.
+description: Reglas de la fusión de las dos fuentes de precios de Cecosesola (mirror GitHub + GraphQL oficial). Úsala al tocar MergeEngine, ProductRepository, los DTOs, los workers de sync, los DAOs o el modelo de datos. Cubre el contrato de las dos monedas (bolívares y el precio solidario en
+  dólares, que la API llama CEC), la regla de no perder productos, y por qué el fixture real es la única verdad al parsear.
 metadata:
   keywords:
   - cecosesola
@@ -23,7 +24,7 @@ usuario no se sobrescribe ni se borra: se enriquece.
 |---|---|---|
 | Endpoint | `raw.githubusercontent.com/dusk0382/cecosesola-data/main/precios.json` | `POST kana.imk.cecosesola.coop/graphql` → `{"query":"query { downloadFile }"}` |
 | Latencia | ~100 KB, CDN, segundos | ~1 MB, **7-40 s**, sin gzip |
-| Trae | `id`, `nombre`, `precio` (Bs), `imagen` | barcode, marca, presentación, tags, imagen grande, **precio CEC** y precio anterior |
+| Trae | `id`, `nombre`, `precio` (Bs), `imagen` | barcode, marca, presentación, tags, imagen grande, **precio solidario en USD** (el payload lo llama CEC) y su valor anterior |
 | Cadencia | sync 6 h, clave `fecha_actualizacion` | sync 1 día, clave `priceList.model.version` |
 
 `data.downloadFile` es un **string con JSON adentro**: hay dos niveles de parseo
@@ -31,24 +32,45 @@ usuario no se sobrescribe ni se borra: se enriquece.
 
 ## Contrato de monedas — la regla que más se rompe
 
-Tres números distintos. No son intercambiables:
+Tres números distintos, en **dos monedas**:
 
-- `precioBs` — lo que **se muestra**. Canónico del mirror. `ProductEntity.precioBs`.
-- `precioCec` — precio solidario en unidades CEC. Solo de la API.
-- `precioAnteriorCec` — el CEC anterior. **Solo de la API.**
+- `precioBs` — el precio en bolívares. Canónico del mirror. `ProductEntity.precioBs`.
+- `precioCec` — el precio solidario **en dólares**. Solo de la API.
+- `precioAnteriorCec` — el precio solidario anterior. **Solo de la API.**
 
-**El delta de precio se calcula CEC↔CEC, jamás Bs↔CEC.** Mezclar monedas da un
-porcentaje sin significado, y como los precios en Bs se actualizan a otra
-frecuencia que lossolidarios, el número "correcto" en Bs y el número que el
-usuario quiere ver (subió o bajó el precio solidario) no coinciden.
-`DeltaBadge.kt:36-37` es el único lugar que calcula el delta: recibe dos CEC.
+### "CEC" es el código interno de la API, no una moneda
+
+El payload llama `CEC` a lo que en la app es el precio solidario en dólares, y el
+usuario **no conoce esa palabra: nunca aparece en la interfaz**. Todos los
+`precioBs` se muestran como "Bs" y todos los `precioCec` como "USD".
+
+Que el origen lo llame CEC no lo convierte en una tercera moneda. El propio
+payload lo resuelve: `officialRate.model.base == "CEC"` con
+`forSales: [{destination: "USD", value: 1}, {destination: "VED", value: 832.49}]`
+— o sea **1 CEC = 1 USD**, y 832,49 son justamente los bolívares de un dólar. La
+tasa que se muestra en Ajustes es, por lo tanto, "1 USD = Bs 832,49".
+
+**Ya se Cometió el error dos veces, en direcciones opuestas.** Primero se
+etiquetó la tasa como "1 CEC = Bs …", que es un código que el usuario no
+reconoce. Y al "corregirlo" se agravó el error al asumir que CEC era una
+unidad distinta del dólar y que 832,49 no podía ser la tasa del dólar. Cuando
+cambies una etiqueta de moneda, leé el `officialRate` completo antes de decidir.
+
+Los **nombres de campo** (`precioCec`, `precioAnteriorCec`) conservan el CEC a
+propósito: describen lo que trae el origen, y renombrarlos rompería la
+trazabilidad con la API sin ganar nada.
+
+### El delta: misma moneda de los dos lados, nunca mezclada
+
+`DeltaBadge.kt:36-37` es el único lugar que calcula el delta, y recibe
+`precioCec` y `precioAnteriorCec` — **los dos de la misma moneda**, que es lo que
+importa. Calcularlo contra el precio en Bs daría un porcentaje sin significado:
+los precios en Bs se actualizan a otra frecuencia que los solidarios, así que el
+"cambio" que se vería sería en parte el de la tasa, no el del producto.
+
 Ojo con su guarda de `DeltaBadge.kt:33` — si el precio anterior llega `null` no
 pinta nada y **no hay ningún síntoma**: el badge simplemente no aparece. Por eso
 un `precioAnteriorCec` siempre-nulo se puede esconder meses.
-
-La tasa de `officialRate` es **Bs (VED) por unidad CEC**, no por USD:
-`officialRate.model.base == "CEC"`. Ojo al etiquetarla en la UI — ya se
-etiquetó mal una vez como "1 USD = Bs …" cuando el valor es VED-por-CEC.
 
 ## Trampas permanentes del payload de la API
 

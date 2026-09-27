@@ -85,6 +85,19 @@ class CatalogViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, _busqueda.value)
 
     /**
+     * La búsqueda **ya asentada**, expuesta para que la UI pueda decidir cuándo
+     * cambió de verdad el conjunto de resultados.
+     *
+     * La UI escribe la búsqueda al instante en cada tecla, pero la consulta a Room
+     * va con debounce. Con la búsqueda cruda como señal, el catálogo "?ve un cambio
+     * de conjunto" 220 ms antes de que la lista sea la nueva, y cualquier
+     * posicionamiento de scroll se aplica contra la lista equivocada. Como el
+     * debounce ya está hecho acá y es el mismo que usa [productos], esta es la
+     * única señal con la que la clave y la lista cambian juntas.
+     */
+    val consultaSettled: StateFlow<String> = consultaAsentada
+
+    /**
      * Conteo por clase para el selector de filtros. Baymard (ver DESIGN.md §7):
      * el conteo junto a cada opción es la mejora de mayor impacto en una UI de
      * filtros, y la multi-selección evita la fricción de la selección única.

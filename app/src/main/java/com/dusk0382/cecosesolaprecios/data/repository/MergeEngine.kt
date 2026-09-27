@@ -106,7 +106,7 @@ object MergeEngine {
 
     /** Enriquecimiento → upsert sobre filas existentes (match: apiId → barcode →
      *  nombre normalizado) o insert nuevo con fuente "api". El delta de precio se
-     *  guarda en CEC (misma moneda en ambos puntos); Bs es solo para mostrar.
+     *  guarda en la misma moneda a los dos puntos; Bs es solo para mostrar.
      *
      *  Misma restricción que en [filasDesdeRepo]: el fallback por nombre solo
      *  puede tocar filas que todavía no tienen `apiId` ni `barcode` identificables,
@@ -155,7 +155,7 @@ object MergeEngine {
                 clase = rubroDe(e.nombre, listOfNotNull(e.categoria)).name,
                 // Sin tasa oficial no hay forma honesta de expresar un precio
                 // solidario en Bs. Antes se usaba `?: 1.0`, que pintaba "Bs 1,68"
-                // para un producto de 1,68 CEC: un precio 500 veces menor al real
+                // para un producto de 1,68 USD: un precio 500 veces menor al real
                 // que el usuario leía como si fuera el del producto. Con 0.0 la
                 // tarjeta muestra Bs 0,00 y no inventa un número.
                 precioBs = e.precioCec * (tasaVedPorCec ?: 0.0),
@@ -173,7 +173,13 @@ object MergeEngine {
         }
     }
 
-    /** "forSales: [{USD,1},{VED,832.49}]" → tasa VED/CEC (Bs por unidad solidaria). */
+    /**
+     * "forSales: [{USD,1},{VED,832.49}]" → los bolívares de **un dólar**.
+     *
+     * El payload llama `CEC` a la unidad base y ofrece venderla a USD (1) o a VED
+     * (832,49), así que el valor de VED es la tasa del dólar. Por eso Ajustes
+     * muestra "1 USD = Bs 832,49" y no el código interno.
+     */
     fun tasaVed(payload: PayloadOficial): Double? =
         payload.officialRate?.model?.forSales
             ?.firstOrNull { it.destination == "VED" }

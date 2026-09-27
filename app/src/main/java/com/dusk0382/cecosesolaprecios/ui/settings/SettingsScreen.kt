@@ -178,13 +178,7 @@ fun SettingsScreen(
                 estado.milisApi?.let(::formatFechaHora) ?: pendiente,
             )
             estado.tasaVed?.let { tasa ->
-                // La etiqueta decía "1 USD = Bs …", y el número no es eso. Es lo
-                // que vale **una unidad del precio solidario (CEC)** en bolívares:
-                // el payload viene con `officialRate.base == "CEC"` y su
-                // `forSales` es [{USD,1},{VED,832.49}], o sea 832,49 es Bs por
-                // CEC, no por dólar. El dólar real anda por ~36, así que la
-                // etiqueta vieja mentía por un factor de 23.
-                FilaDato("Tasa del precio solidario", "1 CEC = Bs ${formatBs(tasa)}")
+                FilaDato("Tasa del precio solidario", "1 USD = Bs ${formatBs(tasa)}")
             }
             if (estado.ferias.isNotEmpty()) {
                 FilaDato("Ferias", estado.ferias.joinToString(", "))
@@ -240,7 +234,7 @@ fun SettingsScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Mostrar precios en USD", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            "Usa el precio solidario (CEC) de la lista oficial.",
+                            "Usa el precio solidario en dólares de la lista oficial.",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

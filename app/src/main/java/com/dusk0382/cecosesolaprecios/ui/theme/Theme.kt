@@ -91,7 +91,7 @@ private val EsquemaOscuro = darkColorScheme(
 /**
  * Roles que Material3 no tiene y que este producto necesita: el acento de precio
  * (que no puede ser `primary` porque `primary` es relleno y falla AA como texto) y
- * la semántica de variación, siempre CEC contra CEC.
+ * la semántica de variación, siempre de la misma moneda a los dos lados.
  *
  * Se expone por CompositionLocal en vez de por `MaterialTheme.colorScheme` para no
  * fingir que son roles del sistema.

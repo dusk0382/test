@@ -86,7 +86,7 @@ class CartViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
     /**
-     * Total en CEC. **null si algún producto del carrito aún no tiene precio
+     * Total del precio solidario. **null si algún producto del carrito aún no tiene
      * solidario**: sumar solo los que sí lo tienen daría un total menor al real y
      * el usuario lo descubriría en la caja. En ese caso se muestra Bs.
      */
@@ -122,7 +122,7 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
     val context = LocalContext.current
     var confirmarVaciar by remember { mutableStateOf(false) }
 
-    // El total sigue la moneda del toggle solo si TODOS los ítems tienen CEC.
+    // El total sigue la moneda del toggle solo si TODOS los ítems tienen ese precio.
     val mostrarTotalUsd = usd && totalCec != null
     val totalTexto = if (mostrarTotalUsd) "USD ${formatBs(totalCec!!)}" else "Bs ${formatBs(totalBs)}"
 

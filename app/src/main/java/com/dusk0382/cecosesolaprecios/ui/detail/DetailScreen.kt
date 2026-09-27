@@ -151,12 +151,12 @@ fun DetailScreen(
                 DeltaBadge(prod.precioCec, prod.precioAnteriorCec) // CEC↔CEC: misma moneda
             }
             // La otra moneda, tal cual viene de la fuente: el precio en Bs y el
-            // solidario (CEC) son precios distintos, no una conversión — por eso
+            // solidario son precios distintos, no una conversión — por eso
             // se rotula "precio en bolívares" y nunca "equivalente".
             val secundario = if (moneda == "USD") {
                 "Precio en bolívares: Bs ${formatBs(prod.precioBs)}"
             } else {
-                prod.precioCec?.takeIf { it > 0 }?.let { "Precio solidario: ${formatBs(it)} CEC" }
+                prod.precioCec?.takeIf { it > 0 }?.let { "Precio solidario: ${formatBs(it)} USD" }
             }
             if (secundario != null) {
                 Spacer(Modifier.height(Espacio.xs))

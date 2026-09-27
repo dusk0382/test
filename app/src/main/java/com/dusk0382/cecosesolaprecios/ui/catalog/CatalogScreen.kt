@@ -126,46 +126,71 @@ fun CatalogScreen(
     // catálogo, justo donde estaba antes de filtrar. Se veía como "se scrolleó
     // solo", y era el estado, no la animación.
 
-    // Una sola cadena que identifica el conjunto de resultados: consulta
-    // normalizada + clases ordenadas + orden. El separador evita que dos
-    // combinaciones distintas den la misma clave.
-    val claveFiltros = remember(query, clasesSel, orden) {
-        listOf(query.trim().lowercase(), clasesSel.sorted().joinToString(","), orden.key)
-            .joinToString("|")
-    }
-    val hayResultados = productos.isNotEmpty()
-
     val gridState = rememberLazyGridState()
 
     // Memoria de scroll por conjunto de filtros.
     //
     // El caso que motiva esto: el usuario scrollea hasta el producto 60, escribe
     // "leche", mira los 3 resultados, y limpia el campo. Lo razonable es volver
-    // exactamente al punto donde estaba, con el mismo producto a la vista. Antes
-    // el `key(query, …) { rememberLazyGridState() }` descartaba el estado en cada
-    // cambio de búsqueda, así que volvía al principio: había que volver a bajar
-    // veinte pantallas.
+    // exactamente al punto donde estaba, con el mismo producto a la vista. Y al
+    // escribir una búsqueda nueva, lo razonable es el principio: es otro conjunto
+    // de resultados y el índice anterior no significa nada. Por eso la posición se
+    // guarda por clave y no una sola.
     //
-    // Y al escribir una búsqueda nueva, lo razonable es el principio: el resultado
-    // es otro conjunto y el índice anterior no significa nada. Por eso la
-    // posición se guarda por clave, no una sola: la clave de la búsqueda anterior
-    // conserva su índice, y la nueva arranca en 0 salvo que ya se haya usado.
-    // `mutableMapOf` a propósito, no `mutableStateMapOf`: esto no es estado de UI,
-    // es un registro de consulta, y escribirlo no debe invalidar nada.
+    // `posiciones` a propósito NO es `rememberSaveable`: solo se consulta cuando el
+    // conjunto cambia, y eso no pasa al navegar. Al volver del detalle el mapa se
+    // recrea vacío, y está bien: la posición viva la conserva el `gridState`, que
+    // sí es saveable.
     val posiciones = remember { mutableMapOf<String, Int>() }
-    var ultimaClave by remember { mutableStateOf(claveFiltros) }
 
-    // `hayResultados` va en las claves a propósito: si la búsqueda no deja nada,
-    // la grilla no está compuesta, y un `scrollToItem` sobre un estado desadjuntado
-    // depende de que el scroll pendiente se aplique al volver a montarla. Al
-    // aparecer la grilla de nuevo, el efecto corre con ella ya en composición.
-    LaunchedEffect(claveFiltros, hayResultados) {
-        if (ultimaClave != claveFiltros) {
+    val consultaSettled by vm.consultaSettled.collectAsStateWithLifecycle()
+
+    // Qué conjunto muestra la grilla. La clave usa la consulta **asentada** y no
+    // la que el usuario está escribiendo: la cruda cambia con cada tecla, mucho
+    // antes de que la lista la siga.
+    val claveResultados = remember(consultaSettled, clasesSel, orden) {
+        listOf(
+            consultaSettled.trim().lowercase(),
+            clasesSel.sorted().joinToString(","),
+            orden.key,
+        ).joinToString("|")
+    }
+
+    // `rememberSaveable` en los tres: al volver del detalle se restauran, y como
+    // la clave coincide con la que ya se aplicó, el efecto no toca el scroll. Con
+    // `remember` a secas, cada vuelta desde el detalle recalculaba
+    // `posiciones[clave] ?: 0` sobre un mapa vacío y mandaba la grilla al
+    // principio, pisando la posición que el propio `gridState` traía guardada.
+    var claveAplicada by rememberSaveable { mutableStateOf<String?>(null) }
+    var ultimaClave by rememberSaveable { mutableStateOf(claveResultados) }
+
+    // A dónde hay que dejar la grilla en cuanto la lista lo permita. Existe
+    // porque la clave y la lista **no** cambian juntas: cuando la consulta
+    // asentada cambia, la lista que sigue mostrando la grilla es todavía la
+    // anterior, y un `scrollToItem(50)` contra tres productos se recorta al
+    // último. El objetivo se guarda acá y se aplica recién cuando la lista es lo bastante larga; mientras tanto, cada cambio de lista reintenta.
+    var objetivoPendiente by rememberSaveable { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(claveResultados, productos.size) {
+        // 1. ¿Cambió el conjunto de resultados? Entonces se guarda la posición del
+        //    que se abandona y se decide el destino.
+        if (ultimaClave != claveResultados) {
             posiciones[ultimaClave] = gridState.firstVisibleItemIndex
-            ultimaClave = claveFiltros
+            ultimaClave = claveResultados
+            objetivoPendiente = posiciones[claveResultados] ?: 0
+            claveAplicada = claveResultados
+        } else if (claveAplicada == claveResultados && objetivoPendiente == null) {
+            // 2. Mismo conjunto y nada pendiente: la lista solo se re-emitió. Es
+            //    un sync de fondo, o el carrito, o un favorito. Mover el scroll
+            //    acá mandaría al usuario al principio mientras scrollea.
+            return@LaunchedEffect
         }
-        if (hayResultados) {
-            gridState.scrollToItem(posiciones[claveFiltros] ?: 0)
+
+        // 3. Aplicar el destino, si la lista actual ya puede mostrarlo.
+        val objetivo = objetivoPendiente ?: 0
+        if (objetivo == 0 || productos.size > objetivo) {
+            gridState.scrollToItem(objetivo)
+            objetivoPendiente = null
         }
     }
 

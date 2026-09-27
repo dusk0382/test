@@ -124,9 +124,19 @@ Reglas del primitivo:
     requisitos de contraste distintos.
   - Superficies neutras cálidas con tres niveles (`surface`, `surfaceContainerHigh`,
     `surfaceContainerHighest`) para hacer jerarquía por **tono**, no por bordes.
+  - **Dos monedas en pantalla: bolívares y el precio solidario en dólares.** "CEC" es
+    el código con el que la API nombra ese precio y **no aparece nunca en la
+    interfaz**: `precioBs` se muestra "Bs" y `precioCec` se muestra "USD". El propio
+    payload lo confirma —`officialRate.base == "CEC"` con
+    `forSales: [{USD, 1}, {VED, 832.49}]`, o sea 1 CEC = 1 USD y 832,49 son los
+    bolívares de un dólar—, así que la tasa de Ajustes es "1 USD = Bs 832,49". Los
+    nombres de campo conservan el CEC porque describen lo que trae el origen.
+    Detalle en `.claude/skills/ceco-precios-datos`.
   - `secondary`/`tertiary` son neutros cálidos de la familia de la marca: existen
     para que ningún componente caiga al lila por defecto.
-  - Variación de precio, siempre **CEC contra CEC**: sube = rojo apagado (6.16:1),
+  - Variación de precio, siempre **de la misma moneda a los dos lados** —el
+    precio solidario contra su valor anterior, nunca contra el precio en Bs—:
+    sube = rojo apagado (6.16:1),
     baja = verde apagado (6.17:1), en badges chicos, nunca tiñendo la tarjeta.
 
 ## 6. Puertas deterministas (no se juzga el diseño a ojo)
@@ -199,9 +209,9 @@ de cada una. Este documento dice **por qué**; las skills dicen **dónde**.
 - **Consistencia en la tarjeta** (Baymard: 64% de los sitios falla en esto; mostrar un
   atributo sólo en algunos ítems hace que el usuario descarte los demás): la tarjeta
   muestra **siempre** imagen, nombre, precio y el control de carrito. El `%` de
-  variación y el precio solidario CEC **no** van en la tarjeta aunque existan para
+  variación y el precio solidario **no** van en la tarjeta aunque existan para
   algunos productos: van en el detalle, donde están todos los datos.
-- **Detalle**: nombre, precio grande, precio solidario CEC si existe, y **solo los
+- **Detalle**: nombre, precio grande, precio solidario en USD si existe, y **solo los
   datos reales** (se ocultan presentación vacía, marca redundante). Acción fija
   abajo: stepper si ya está en el carrito, botón si no. Sin imagen gigante vacía.
 - **Barra inferior**: `ShortNavigationBar` en Catálogo, Favoritos y Carrito.

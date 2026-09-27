@@ -6,7 +6,8 @@ import com.dusk0382.cecosesolaprecios.data.local.CartLine
 import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 
 /**
- * ¿Mostrar los precios en USD (CEC) en vez de Bs?
+ * ¿Mostrar los precios en USD (el precio solidario de la API, que llama CEC) en
+ * vez de Bs?
  * Un solo valor para toda la app: se provee en MainActivity desde AppPrefs y lo
  * leen las tarjetas, el detalle y el carrito sin ir pasando parámetros.
  *
@@ -26,13 +27,17 @@ val LocalUsdPrecio = compositionLocalOf { false }
 fun ProductEntity.precioMostrado(): Pair<Double, String> {
     val cecActivado = LocalUsdPrecio.current
     val cec = precioCec
-    // La etiqueta dice **CEC**, no "USD". El número es el precio solidario en
-    // unidades CEC, que no son dólares: el propio payload lo dice
-    // (`priceBase.currencyCode == "CEC"`) y la tasa de Ajustes dice cuántos Bs
-    // vale una unidad. Ponerle "USD" era mentirle al usuario dos veces: la
-    // etiqueta, y el total del carrito que suma esos mismos números. Con el
-    // nombre correcto, "CEC 1,68" se lee como lo que es.
-    return if (cecActivado && cec != null) cec to "CEC" else precioBs to "Bs"
+    // Se muestra como **USD**. "CEC" es el código interno con el que la API
+    // nombra el precio solidario, y no es una moneda que el usuario conozca: en
+    // la app no aparece nunca. Que el payload lo llame CEC no lo convierte en
+    // otra cosa — su propio `officialRate` dice `base: "CEC"` con
+    // `forSales: [{USD, 1}, {VED, 832.49}]`, o sea **1 CEC = 1 USD** y 832,49
+    // son justamente los Bs de un dólar.
+    //
+    // Los nombres de campo (`precioCec`, `precioAnteriorCec`) se dejan como
+    // están porque describen lo que trae el origen, que es lo que hay que
+    // preservar para no perder trazabilidad con la API.
+    return if (cecActivado && cec != null) cec to "USD" else precioBs to "Bs"
 }
 
 /**
@@ -42,7 +47,7 @@ fun ProductEntity.precioMostrado(): Pair<Double, String> {
  */
 fun CartLine.precioMostrado(cecActivado: Boolean): Pair<Double, String> {
     val cec = precioCec
-    return if (cecActivado && cec != null) cec to "CEC" else precioBs to "Bs"
+    return if (cecActivado && cec != null) cec to "USD" else precioBs to "Bs"
 }
 
 /**

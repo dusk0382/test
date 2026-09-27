@@ -200,7 +200,7 @@ class ProductRepository @Inject constructor(
         Log.i(
             TAG,
             "syncEnrich: ${enriquecidos.size} productos enriquecidos, version $version, " +
-                "tasa VED/CEC ${tasa ?: "sin tasa (los precios en Bs de filas solo-API quedan en 0)"}",
+                "Bs por USD ${tasa ?: "sin tasa (los precios en Bs de filas solo-API quedan en 0)"}",
         )
         true
     }
