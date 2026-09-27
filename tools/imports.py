@@ -104,9 +104,15 @@ SIMBOLO_A_PAQUETE = {
 # aparezca en el cuerpo sin estar importado.
 SIMBOLOS_QUE_SE_OLVIDAN = [
     "Arrangement", "Alignment", "ContentScale", "TextOverflow", "TextAlign",
-    "KeyboardOptions", "ImeAction", "collectAsStateWithLifecycle", "AsyncImage",
+    "KeyboardOptions", "KeyboardActions", "ImeAction", "collectAsStateWithLifecycle", "AsyncImage",
     "verticalScroll", "animateItem", "animateContentSize", "withTransaction",
-    "mutableStateOf", "rememberSaveable", "LaunchedEffect", "stateIn",
+    # `remember` faltaba de esta lista y por eso run 77 fallo: se agrego a
+    # SIMBOLO_A_PAQUETE (que es el mapa de "de que subpaquete viene") pero no a la
+    # lista de "se usa sin importar", que es la que chequea. Dos listas con el
+    # mismo nombre parecido: el error fue de una, no del codigo.
+    "remember", "mutableStateOf", "rememberSaveable", "LaunchedEffect",
+    "DisposableEffect", "mutableStateMapOf", "mutableStateListOf",
+    "derivedStateOf", "rememberCoroutineScope", "stateIn", "produceState",
     "combine", "debounce", "flatMapLatest", "distinctUntilChanged", "SharingStarted",
     "bottomSheet", "Crossfade", "scaleIn", "fadeIn", "slideInVertically",
     # Tipos de Android y Kotlin que se usan en firmas y se olvidan al mover
@@ -114,7 +120,22 @@ SIMBOLOS_QUE_SE_OLVIDAN = [
     # imports: esta lista es el que se paga por no haberlos anticipating.
     "Context", "Activity", "Intent", "Uri", "Bundle", "Log", "Size", "Color",
     "Duration", "ColorFilter", "Path", "Rect",
+    # Graficos y animacion: son los que se olvidan al escribir un Icon o un
+    # painter, y el error sale igual de invisible.
+    "SolidColor", "Brush", "TextStyle", "FontWeight", "TileMode", "BlendMode",
+    "scaleIn", "scaleOut", "slideInVertically", "slideOutVertically",
+    "AnimatedContent", "navArgument", "NavType", "NavHost", "composable",
+    # Ojo: `enterTransition`/`exitTransition`/`popEnterTransition`/`popExitTransition`
+    # son parametros con nombre del NavHost, no funciones. Meterlos en la lista
+    # hacia que el checker reportara cuatro imports que nunca hizo falta.
 ]
+
+# Limite honesto de este checker: solo vigila los simbolos de esta lista. Un
+# simbolo de libreria que no este aca y se use sin su import NO se detecta, porque
+# resolverlo sin compilador exigiria una tabla de todo Compose, Android y Kotlin.
+# La lista se agranda con cada simbolo que en la practica se ha verloren, que hasta
+# ahora son: TextAlign, Arrangement, ContentScale, TextOverflow, AsyncImage,
+# Context, remember, KeyboardActions, ImeAction y SolidColor.
 
 
 def _sin_comentarios(txt: str) -> str:
@@ -188,12 +209,18 @@ def revisar(path: Path) -> None:
         if simbolo in importados or simbolo in definidos_en_el_archivo:
             continue
         # Se usa como identificador desnudo, no como `algo.algo`
-        # `(?![\w(])`: no es followed de palabra ni llamada.
-        # `(?!\.kt\b)`: `Color.kt` en un KDoc es un nombre de archivo, no un uso
-        # del símbolo — pero `Context.findActivity()` SÍ es un uso, así que solo
-        # se descarta la forma de nombre de archivo y no cualquier punto.
+        # `(?![\w.])` y nada de excluir un `(` siguiente: excluirlo hacia que
+        # NUNCA se detectara una llamada, que es el caso común (`remember(...)`).
+        # Ese `(` estaba para no confundir una declaración local con un uso, pero
+        # eso ya lo resuelve `definidos_en_el_archivo`, que se consulta antes.
+        # `(?!\.kt\b)`: `Color.kt` en un KDoc es un nombre de archivo, no un uso.
+        # El punto queda fuera de la clase de caracteres A PROPÓSITO: si se
+        # excluyera, un uso cualificado como `ImeAction.Search` no contaría y el
+        # checker se volvería a perder los imports de las constantes de enumerado.
+        # El único caso que hay que descartar es el nombre de archivo `Color.kt`,
+        # y para eso está el lookahead aparte.
         if re.search(
-            r"(?<![A-Za-z0-9_.])" + simbolo + r"(?![A-Za-z0-9_(])(?!\.kt\b)",
+            r"(?<![A-Za-z0-9_.])" + simbolo + r"(?![A-Za-z0-9])(?!\.kt\b)",
             cuerpo,
         ):
             problemas.append(f"{path}: {simbolo} se usa pero no está importado")
