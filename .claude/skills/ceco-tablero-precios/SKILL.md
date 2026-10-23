@@ -70,7 +70,7 @@ Lo único que cambia por pantalla es si el producto ya está en el carrito
 
 ```
 ┌──────────────────┐
-│  imagen          │  ♡        ← contenedor tonal, sin borde
+│  imagen          │  ♡        ← plato claro, sin borde
 ├──────────────────┤
 │ Nombre a 2 líneas           ← bodyMedium, sentence case
 │ Bs 1.365,50                 ← cifras tabulares, acento de precio
@@ -78,12 +78,17 @@ Lo único que cambia por pantalla es si el producto ya está en el carrito
 └──────────────────┘
 ```
 
-- **Imagen 1:1 como objetivo**, `ContentScale.Fit` sobre `surfaceContainerHighest`.
-  *Deuda*: hoy el alto es fijo (`AltoImagenTarjeta = 132.dp`), no 1:1; y en oscuro
-  las fotos sobre blanco siguen dejando un bloque claro. Ver `DESIGN.md` §9.
+- **Imagen 1:1** (`Modifier.aspectRatio(1f)`), `ContentScale.Fit` sobre
+  `PlatoImagen`. El plato es claro en **los dos temas**: las fotos del origen
+  vienen sobre blanco y así su fondo se funde en vez de quedar un bloque blanco
+  sobre la tarjeta oscura. El corazón va con `TintaSobrePlato` (oscura en ambos).
 - Nombre: **máximo 2 líneas** con elipsis y altura estable.
 - Precio: **cifras tabulares** (`tnum`), separador de miles es-VE.
 - **Nada más**: ni categoría, ni marca, ni descripción.
+
+En el carrito el nombre usa el ancho completo; el importe va en la segunda fila a
+la derecha (`PrecioTarjeta`) y el stepper a la izquierda. El stepper no le roba
+ancho al nombre ni compite con la plata.
 
 Mostrar un atributo solo en algunos ítems hace que el usuario descarte los
 demás. El `%` de variación y el precio solidario van en el **detalle**, no en
@@ -114,6 +119,7 @@ Nada de números sueltos. Cada token tiene un archivo y una razón.
 | formas | `MaterialTheme.shapes.*` (8/12/16/20/28) | `theme/Forma.kt` |
 | precio | `PrecioDetalle`, `PrecioTarjeta`, `PrecioApoyo` | `theme/Type.kt:73-83` |
 | color de precio | `LocalColoresPrecio.current` | `theme/Theme.kt:118` |
+| plato de imagen | `PlatoImagen`, `TintaSobrePlato` | `theme/Theme.kt` |
 | moneda | `LocalUsdPrecio` | `ui/common/PrecioVisible.kt` |
 
 Base 4 dp. Un `.dp` suelto en una pantalla es un defecto, no una excepción
@@ -234,7 +240,8 @@ Y dos cosas que son de jerarquía, no de función:
   alineado a la derecha y con altura constante.
 - El corazón de favorito usaba el token de acento de precio. Ese token está
   reservado al precio (§5): con seis favoritos la fila de corazones brillaba más
-  que los precios. Un favorito tampoco es un `error`. Va `onSurfaceVariant`.
+  que los precios. Un favorito tampoco es un `error`. Va `TintaSobrePlato`, oscura
+  en los dos temas porque pisa el plato de imagen, no la superficie.
 
 ## Insets: la trampa del Scaffold anidado
 

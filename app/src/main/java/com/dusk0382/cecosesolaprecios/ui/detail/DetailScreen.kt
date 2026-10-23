@@ -1,5 +1,6 @@
 package com.dusk0382.cecosesolaprecios.ui.detail
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,6 +44,7 @@ import com.dusk0382.cecosesolaprecios.ui.common.PriceText
 import com.dusk0382.cecosesolaprecios.ui.common.Stepper
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
+import com.dusk0382.cecosesolaprecios.ui.theme.PlatoImagen
 import com.dusk0382.cecosesolaprecios.ui.theme.PrecioDetalle
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
@@ -135,7 +137,13 @@ fun DetailScreen(
                 // elementos distintos. En la tarjeta ya es null por esto.
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(220.dp).clip(MaterialTheme.shapes.large),
+                // Mismo plato claro que la tarjeta: la foto viene sobre blanco y
+                // en oscuro un cuadrado blanco suelto no es una decisión visual.
+                modifier = Modifier
+                    .size(220.dp)
+                    .clip(MaterialTheme.shapes.large)
+                    .background(PlatoImagen)
+                    .padding(Espacio.s),
             )
             Spacer(Modifier.height(Espacio.l))
             Text(formatearNombreProducto(prod.nombre), style = MaterialTheme.typography.titleLarge)

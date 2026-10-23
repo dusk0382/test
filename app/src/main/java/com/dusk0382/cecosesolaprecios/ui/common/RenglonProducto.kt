@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,15 +32,14 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 import com.dusk0382.cecosesolaprecios.domain.formatearNombreProducto
-import com.dusk0382.cecosesolaprecios.ui.theme.AltoImagenTarjeta
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
-import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
+import com.dusk0382.cecosesolaprecios.ui.theme.PlatoImagen
+import com.dusk0382.cecosesolaprecios.ui.theme.TintaSobrePlato
 
 /**
- * El primitivo único (DESIGN.md §4): imagen sobre contenedor tonal (1:1 es el
- * objetivo; hoy alto fijo, §9), nombre a 2 líneas, precio grande con cifras
- * tabulares y control de carrito. Sin categoría, sin marca, sin borde — la
- * jerarquía la hacen el tono y el tamaño.
+ * El primitivo único (DESIGN.md §4): imagen 1:1 sobre un plato claro, nombre a
+ * 2 líneas, precio grande con cifras tabulares y control de carrito. Sin
+ * categoría, sin marca, sin borde — la jerarquía la hacen el tono y el tamaño.
  */
 @Composable
 fun RenglonProducto(
@@ -62,8 +62,8 @@ fun RenglonProducto(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(AltoImagenTarjeta)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                    .aspectRatio(1f)
+                    .background(PlatoImagen),
             ) {
                 AsyncImage(
                     model = producto.imagenUrl ?: producto.imagenGrandeUrl,
@@ -78,13 +78,21 @@ fun RenglonProducto(
                 )
             }
             Column(Modifier.padding(Espacio.s)) {
-                Text(
-                    text = formatearNombreProducto(producto.nombre),
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().height(40.dp),
-                )
+                // Alto fijo para que la grilla no baile, pero el texto se apoya
+                // abajo: con un nombre de una línea el hueco queda debajo de la
+                // foto y no entre el nombre y el precio.
+                Box(
+                    Modifier.fillMaxWidth().height(40.dp),
+                    contentAlignment = Alignment.BottomStart,
+                ) {
+                    Text(
+                        text = formatearNombreProducto(producto.nombre),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 Spacer(Modifier.height(Espacio.xs))
 
                 // El precio va en su propia línea, no compartido con el control.
@@ -146,9 +154,9 @@ private fun IconoFavorito(
             // precio (DESIGN.md §5) y con seis favoritos en pantalla la fila de
             // corazones brillaba más que los precios, que es exactamente lo
             // contrario de la jerarquía del cartel. Un "error" no es: marcar algo
-            // como favorito no es un error. Se usa onSurface, que además es lo
-            // que ya usan los hearts inactivos y evita el salto de color al tapar.
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            // como favorito no es un error. La tinta es oscura en ambos temas
+            // porque el plato de imagen también es claro en ambos.
+            tint = TintaSobrePlato,
             modifier = Modifier.size(20.dp),
         )
     }

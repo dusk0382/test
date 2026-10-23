@@ -29,7 +29,8 @@ object Espacio {
 }
 
 /**
- * Alto fijo de la caja de imagen del primitivo (DESIGN.md §4). Fijo y no
- * "aspect ratio variable" para que las filas de la grilla no queden irregulares.
+ * Reserva inferior de la grilla del catálogo: deja pasar el último renglón por
+ * encima del FAB del escáner (56 dp + 16 de margen + 12 de gap). Sin esto, el
+ * FAB tapa el control de carrito de la última tarjeta.
  */
-val AltoImagenTarjeta = 132.dp
+val reservaFab = 88.dp

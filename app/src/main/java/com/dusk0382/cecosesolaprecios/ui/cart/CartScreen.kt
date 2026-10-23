@@ -43,7 +43,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -60,6 +59,7 @@ import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
 import com.dusk0382.cecosesolaprecios.ui.common.Stepper
 import com.dusk0382.cecosesolaprecios.ui.theme.PrecioDetalle
 import com.dusk0382.cecosesolaprecios.ui.theme.PrecioApoyo
+import com.dusk0382.cecosesolaprecios.ui.theme.PrecioTarjeta
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import com.dusk0382.cecosesolaprecios.ui.common.PriceText
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -255,43 +255,46 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
             // Sin borde: la jerarquía la da el tono del contenedor (DESIGN.md §3.2).
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
-            Row(
-                Modifier.fillMaxWidth().padding(Espacio.m),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = formatearNombreProducto(linea.nombre),
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    // El precio por unidad **solo si la cantidad no es 1**. Con una
-                    // unidad, el "Bs 855 c/u" y el importe de la línea son el mismo
-                    // número impreso dos veces en la misma fila, y en el screenshot
-                    // se leía "USD c/u 2,1" a la izquierda con "USD 2,1" a la
-                    // derecha: ruido puro. Con 2 o más unidades el precio unitario
-                    // sí aporta información y se muestra.
-                    if (linea.quantity > 1) {
-                        val (unitario, moneda) = linea.precioMostrado(usd)
+            Column(Modifier.fillMaxWidth().padding(Espacio.m)) {
+                // El nombre usa el ancho completo: antes el stepper y el importe
+                // le robaban la mitad de la fila y "Aceite de Oliva 250ml Extra
+                // Virgen" se cortaba en "Extra Vi…".
+                Text(
+                    text = formatearNombreProducto(linea.nombre),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(Espacio.s))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Stepper(cantidad = linea.quantity, onCantidad = onQty)
+                    Spacer(Modifier.weight(1f))
+                    Column(horizontalAlignment = Alignment.End) {
+                        val (importe, monedaLinea) = linea.importeLinea(usd)
                         PriceText(
-                            valor = unitario,
-                            prefix = "$moneda c/u",
-                            style = PrecioApoyo,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            valor = importe,
+                            prefix = monedaLinea,
+                            style = PrecioTarjeta,
                         )
+                        // El precio por unidad **solo si la cantidad no es 1**. Con
+                        // una unidad, el "Bs 855 c/u" y el importe de la línea son
+                        // el mismo número impreso dos veces, y en el screenshot se
+                        // leía "USD c/u 2,1" al lado de "USD 2,1": ruido puro. Con
+                        // dos o más unidades sí aporta información.
+                        if (linea.quantity > 1) {
+                            val (unitario, moneda) = linea.precioMostrado(usd)
+                            PriceText(
+                                valor = unitario,
+                                prefix = "$moneda c/u",
+                                style = PrecioApoyo,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
-                Stepper(cantidad = linea.quantity, onCantidad = onQty)
-                Spacer(Modifier.width(Espacio.m))
-                val (importe, monedaLinea) = linea.importeLinea(usd)
-                PriceText(
-                    valor = importe,
-                    prefix = monedaLinea,
-                    style = PrecioApoyo,
-                    modifier = Modifier.width(96.dp),
-                    textAlign = TextAlign.End,
-                )
             }
         }
     }

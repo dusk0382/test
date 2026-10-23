@@ -118,6 +118,19 @@ private val ColoresPrecioOscuro = ColoresPrecio(
 val LocalColoresPrecio = staticCompositionLocalOf { ColoresPrecioClaro }
 
 /**
+ * El plato donde se apoyan las fotos de producto. Es claro en **los dos temas**
+ * a propósito: las fotos del origen vienen recortadas sobre blanco y con
+ * `ContentScale.Fit` dejan ver su propio fondo. Sobre un contenedor oscuro eso se
+ * leía como un rectángulo blanco pegado a la tarjeta; sobre un plato claro, el
+ * fondo de la foto se funde y el bloque deja de existir.
+ *
+ * La tinta del corazón y de cualquier control sobre la imagen va oscura en ambos
+ * temas, porque siempre pisa el plato y no la superficie del tema.
+ */
+val PlatoImagen: Color = Color(Paleta.PlatoImagen)
+val TintaSobrePlato: Color = Color(Paleta.TintaSobrePlato)
+
+/**
  * Color dinámico OFF a propósito: paleta fija = predecible, más barato de resolver
  * y consistente en dispositivos Go (Helio G25) que ni soportan Material You.
  */

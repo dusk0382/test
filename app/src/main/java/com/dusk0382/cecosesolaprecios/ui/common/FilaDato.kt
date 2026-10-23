@@ -1,5 +1,6 @@
 package com.dusk0382.cecosesolaprecios.ui.common
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -55,6 +56,27 @@ fun FilaDato(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.widthIn(max = AnchoMaximoValor).padding(start = Espacio.m),
         )
+    }
+}
+
+/**
+ * Etiqueta arriba y valor abajo, a ancho completo. Para valores largos —la lista
+ * de ferias— donde la fila etiqueta|valor obliga a envolver el valor contra el
+ * borde derecho y se lee mal.
+ */
+@Composable
+fun FilaDatoBloque(
+    etiqueta: String,
+    valor: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth().padding(vertical = Espacio.xs)) {
+        Text(
+            etiqueta,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(valor, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

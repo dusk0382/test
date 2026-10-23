@@ -27,6 +27,13 @@ internal object Paleta {
     const val AcentoPrecioClaro = 0xFFB93300L // 5.66:1 sobre superficie clara
     const val AcentoPrecioOscuro = 0xFFFFB59BL // 10.07:1 sobre superficie oscura
 
+    // — plato de imagen —
+    // Claro en los dos temas a propósito: las fotos del origen vienen recortadas
+    // sobre blanco, así que su fondo se funde con el plato en vez de quedar un
+    // bloque blanco flotando sobre la tarjeta oscura.
+    const val PlatoImagen = 0xFFFFF8F6L
+    const val TintaSobrePlato = 0xFF241A17L    // 16.20:1 sobre el plato
+
     // — superficies claras —
     const val FondoClaro = 0xFFFFF8F6L
     const val SuperficieClaro = 0xFFFFF8F6L

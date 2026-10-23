@@ -159,6 +159,15 @@ class TemaContrasteTest {
     }
 
     @Test
+    fun `el corazon se lee sobre el plato de imagen en los dos temas`() {
+        // El plato es claro aunque el tema sea oscuro: las fotos del origen vienen
+        // sobre blanco y así su fondo se funde en vez de quedar un bloque blanco
+        // pegado a la tarjeta. Como el corazon pisa el plato y no la superficie,
+        // la tinta es la misma en los dos temas y se verifica una sola vez.
+        verificar("tinta sobre plato de imagen", Paleta.TintaSobrePlato, Paleta.PlatoImagen, AA_TEXTO)
+    }
+
+    @Test
     fun `las superficies distinguen niveles sin depender de sombras`() {
         // La jerarquia se hace con tono, no con bordes de color ni sombras
         // (DESIGN.md §3.2): si los niveles de superficie son iguales, no hay jerarquia.

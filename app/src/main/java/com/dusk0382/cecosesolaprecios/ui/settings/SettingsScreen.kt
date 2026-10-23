@@ -40,6 +40,7 @@ import com.dusk0382.cecosesolaprecios.data.prefs.ThemeMode
 import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
 import com.dusk0382.cecosesolaprecios.ui.MainViewModel
 import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
+import com.dusk0382.cecosesolaprecios.ui.common.FilaDatoBloque
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.formatearFechaMirror
 import com.dusk0382.cecosesolaprecios.ui.common.formatFechaHora
@@ -181,7 +182,7 @@ fun SettingsScreen(
                 FilaDato("Tasa del precio solidario", "1 USD = Bs ${formatBs(tasa)}")
             }
             if (estado.ferias.isNotEmpty()) {
-                FilaDato("Ferias", estado.ferias.joinToString(", "))
+                FilaDatoBloque("Ferias", estado.ferias.joinToString(", "))
             }
 
             Spacer(Modifier.height(Espacio.s))
@@ -231,14 +232,11 @@ fun SettingsScreen(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Mostrar precios en USD", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "Usa el precio solidario en dólares de la lista oficial.",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Text(
+                        "Mostrar precios en USD",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
                     Switch(checked = usd, onCheckedChange = mainVm::setUsd)
                 }
             }

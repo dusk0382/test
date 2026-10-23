@@ -75,6 +75,7 @@ import com.dusk0382.cecosesolaprecios.domain.Rubro
 import com.dusk0382.cecosesolaprecios.domain.etiquetaVisible
 import com.dusk0382.cecosesolaprecios.ui.common.RenglonProducto
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
+import com.dusk0382.cecosesolaprecios.ui.theme.reservaFab
 
 /**
  * Catálogo según DESIGN.md §7: buscador + botón de filtros con badge + FAB de
@@ -269,7 +270,14 @@ fun CatalogScreen(
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
                             state = gridState,
-                            contentPadding = PaddingValues(Espacio.m),
+                            // Reserva inferior para que el último renglón pase
+                            // por encima del FAB y su "+" siga siendo tocable.
+                            contentPadding = PaddingValues(
+                                start = Espacio.m,
+                                top = Espacio.m,
+                                end = Espacio.m,
+                                bottom = reservaFab,
+                            ),
                             horizontalArrangement = Arrangement.spacedBy(Espacio.m),
                             verticalArrangement = Arrangement.spacedBy(Espacio.m),
                             modifier = Modifier.fillMaxSize(),

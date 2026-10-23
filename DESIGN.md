@@ -68,7 +68,7 @@ una tarjeta distinta por pantalla. Vive en `ui/common/RenglonProducto.kt`:
 
 ```
 ┌──────────────────┐
-│  imagen          │  ♡        ← contenedor tonal, sin borde de color
+│  imagen          │  ♡        ← plato claro, sin borde de color
 │                  │
 ├──────────────────┤
 │ Nombre a 2 líneas           ← bodyMedium, sentence case si viene en MAYÚSCULAS
@@ -88,18 +88,20 @@ de dos columnas; forzarla sería peor diseño, no más consistencia. Lo que sí 
 exige es el **mismo lenguaje visual**: mismo `shapes.medium`, misma superficie sin
 borde, mismo `bodyMedium` para el nombre, mismo token de acento y mismas cifras
 tabulares para el precio. La regla es "una sola pieza", no "una sola geometría".
+En la fila del carrito el nombre ocupa el ancho completo y el importe va en la
+segunda fila, a la derecha, con `PrecioTarjeta`; el stepper queda a la izquierda.
+El control no le roba ancho al nombre ni compite con la plata.
 
 Reglas del primitivo:
 
 - Ancho fijo 2 columnas (`LazyVerticalGrid`, no staggered: ritmo parejo y medición
   más barata).
-- Caja de imagen **1:1 como objetivo**, `ContentScale.Fit` sobre
-  `surfaceContainerHighest`. *Deuda*: hoy tiene alto fijo
-  (`AltoImagenTarjeta = 132.dp`, `theme/Espacio.kt`), que en una pantalla de
-  360 dp da 1.23:1 y cambia con el ancho. El 1:1 va con
-  `Modifier.aspectRatio(1f)`. Y el contenedor tonal **no** elimina el bloque
-  blanco en oscuro: las fotos del origen ya vienen sobre blanco y con `Fit`
-  dejan un rectángulo claro que brilla contra la tarjeta. Ver §9.
+- Caja de imagen **1:1** (`Modifier.aspectRatio(1f)`), `ContentScale.Fit` sobre
+  `PlatoImagen`. El plato es **claro en los dos temas** a propósito: las fotos
+  del origen vienen recortadas sobre blanco, así que su fondo se funde con el
+  plato en vez de quedar un rectángulo blanco flotando sobre la tarjeta oscura.
+  La tinta del corazón es oscura en ambos temas porque pisa el plato, no la
+  superficie.
 - Nombre: máximo 2 líneas con elipsis, altura estable, y **siempre** pasado por
   `formatearNombreProducto`.
 - Precio: cifras tabulares, siempre con separador de miles es-VE, y pintado por
@@ -137,6 +139,8 @@ Reglas del primitivo:
     requisitos de contraste distintos.
   - Superficies neutras cálidas con tres niveles (`surface`, `surfaceContainerHigh`,
     `surfaceContainerHighest`) para hacer jerarquía por **tono**, no por bordes.
+  - `PlatoImagen` = `#FFF8F6` y `TintaSobrePlato` = `#241A17` (16.20:1): fondo y
+    tinta de la caja de imagen. No cambian con el tema (ver §4).
   - **Dos monedas en pantalla: bolívares y el precio solidario en dólares.** "CEC" es
     el código con el que la API nombra ese precio y **no aparece nunca en la
     interfaz**: `precioBs` se muestra "Bs" y `precioCec` se muestra "USD". El propio
@@ -270,18 +274,6 @@ se hicieron, porque volver a leerlos evita reintroducirlos:
 
 ## 9. Deuda conocida (anotada, no escondida)
 
-- **La caja de imagen de la tarjeta no es 1:1** (§4): tiene alto fijo de 132 dp.
-- **En oscuro las fotos siguen siendo bloques blancos.** Vienen recortadas sobre
-  blanco y con `ContentScale.Fit` dejan un rectángulo claro dentro del contenedor
-  tonal que brilla contra la tarjeta.
-- **La tarjeta deja un hueco con nombres de una línea.** El nombre tiene alto fijo
-  (40 dp) para que la grilla no baile; con una sola línea quedan ~20 dp vacíos
-  antes del precio. Es el costo de la altura estable, no un olvido.
-- **Ajustes → `Ferias` se envuelve en 3 líneas alineadas a la derecha.** Legible,
-  pero un valor largo contra el borde derecho se lee mal.
-- **En el carrito el stepper compite con el importe.** La fila es
-  nombre | stepper | importe; los dos círculos de 48 dp son el elemento más
-  fuerte, cuando el dato que se viene a leer es la plata.
 - **La migración de Room v1→v2 no está verificada por nada**: `exportSchema = false`,
   no hay schemas exportados para diffear, no hay `MigrationTestHelper` y no hay
   tests instrumentados. Lo único que la protege es el comentario.
