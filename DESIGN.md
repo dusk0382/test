@@ -1,8 +1,13 @@
 # DESIGN.md — Contrato de diseño de "Cecosesola Precios"
 
 > Este archivo no es decoración: es la decisión tomada una vez y leída en cada
-> sesión. Si algo contradice este documento, gana este documento. Si hay que
-> cambiarlo, se cambia aquí primero y después en el código.
+> sesión. Si hay que cambiarlo, se cambia aquí primero y después en el código.
+>
+> **Vigencia (2026-10-23).** En las *decisiones* manda este documento; en los
+> *hechos* manda el código. Si acá dice cómo se ve algo y la app instalada dice
+> otra cosa, gana el código y este archivo se corrige en el mismo commit. Lo
+> único que no envejece solo es lo que está codificado como test o checker (§6);
+> el resto es prosa y se relee contra la pantalla antes de creerle.
 
 ## 1. Contexto que manda
 
@@ -53,6 +58,8 @@ Estas son las que ya cometimos. Ninguna vuelve sin justificación escrita aquí:
 11. **Sin blanco sobre el naranja de marca**: blanco sobre `#FD4902` da **3.43:1** y
     falla AA para texto normal (era el botón "Agregar al carrito"). Sobre el naranja va
     tinta oscura `#2A1200` (5.17:1). El naranja es **relleno**, no color de texto.
+12. **Sin etiquetas ni descripciones secundarias innecesarias.** Deja que el
+    diseño haga la explicación.
 
 ## 4. El primitivo único: "renglón de precio"
 
@@ -61,11 +68,12 @@ una tarjeta distinta por pantalla. Vive en `ui/common/RenglonProducto.kt`:
 
 ```
 ┌──────────────────┐
-│  imagen (1:1)    │  ♡        ← contenedor tonal, sin borde de color
+│  imagen          │  ♡        ← contenedor tonal, sin borde de color
 │                  │
 ├──────────────────┤
 │ Nombre a 2 líneas           ← bodyMedium, sentence case si viene en MAYÚSCULAS
-│ Bs 1.365,50            [ − 2 + ]  o  [ + ]   ← stepper en la misma card
+│ Bs 1.365,50                 ← precio en su propia línea
+│              [ − 2 + ]  o  [ + ]   ← control debajo, alineado a la derecha
 └──────────────────┘
 ```
 
@@ -85,18 +93,23 @@ Reglas del primitivo:
 
 - Ancho fijo 2 columnas (`LazyVerticalGrid`, no staggered: ritmo parejo y medición
   más barata).
-- Caja de imagen **1:1 siempre**, `ContentScale.Fit` sobre `surfaceContainerHighest`
-  (las fotos vienen recortadas sobre blanco: el contenedor tonal evita el bloque blanco).
-  *Pendiente*: hoy la caja tiene alto fijo (`AltoImagenTarjeta = 132.dp`), que en
-  una pantalla de 360 dp da 1.23:1 y cambia con el ancho. El 1:1 va con
-  `Modifier.aspectRatio(1f)`; está anotado como deuda, no como decisión.
+- Caja de imagen **1:1 como objetivo**, `ContentScale.Fit` sobre
+  `surfaceContainerHighest`. *Deuda*: hoy tiene alto fijo
+  (`AltoImagenTarjeta = 132.dp`, `theme/Espacio.kt`), que en una pantalla de
+  360 dp da 1.23:1 y cambia con el ancho. El 1:1 va con
+  `Modifier.aspectRatio(1f)`. Y el contenedor tonal **no** elimina el bloque
+  blanco en oscuro: las fotos del origen ya vienen sobre blanco y con `Fit`
+  dejan un rectángulo claro que brilla contra la tarjeta. Ver §9.
 - Nombre: máximo 2 líneas con elipsis, altura estable, y **siempre** pasado por
   `formatearNombreProducto`.
 - Precio: cifras tabulares, siempre con separador de miles es-VE, y pintado por
   `PriceText` — el único componente que escribe un precio en la app. El color por
   defecto es `LocalColoresPrecio.acento`, **nunca** `colorScheme.primary`.
-- El stepper reemplaza al botón `+` **en el mismo lugar** cuando el producto ya está
-  en el carrito: agregar deja de requerir abrir el detalle.
+- El stepper reemplaza al botón `+` **en el mismo espacio reservado** (la línea de
+  abajo, a la derecha) cuando el producto ya está en el carrito: agregar deja de
+  requerir abrir el detalle y la tarjeta no cambia de alto. El precio no comparte
+  línea con el control: dos círculos de 48 dp son más fuertes que el número, y en
+  una pantalla de precios no puede ganar el stepper.
 - Nada más en la tarjeta. Ni categoría, ni marca, ni descripción.
 
 ## 5. Tokens
@@ -161,8 +174,9 @@ El diseño se verifica con cosas que fallan en CI, no con opiniones:
 4. **`tools/ui_lint.sh`** — tells deterministas sobre el código Compose, **corriendo
    en la CI antes de los tests**: colores hex fuera del tema, `.dp` de espaciado
    fuera de los tokens, emojis, literales en MAYÚSCULAS, `BorderStroke`, radios
-   sueltos, áreas táctiles bajo 48 dp, `Icon` sin etiqueta y precio pintado con un
-   `Text` propio. Este script llama a dos auxiliares:
+   sueltos, elevación distinta de 0, `Icon` sin etiqueta, precio pintado con un
+   `Text` propio y `size()` propio en botones de icono (rompe el objetivo táctil
+   que ya pone M3). Este script llama a dos auxiliares:
    - **`tools/ui_checks.py`** — lo que no se puede hacer con grep: seguir una
      llamada a `Icon(` abierta y buscar el `contentDescription` de las líneas
      siguientes.
@@ -215,7 +229,8 @@ de cada una. Este documento dice **por qué**; las skills dicen **dónde**.
   datos reales** (se ocultan presentación vacía, marca redundante). Acción fija
   abajo: stepper si ya está en el carrito, botón si no. Sin imagen gigante vacía.
 - **Barra inferior**: `ShortNavigationBar` en Catálogo, Favoritos y Carrito.
-  **Oculta** en Detalle y Escáner (tareas de pantalla completa).
+  **Oculta** en Detalle, Escáner y Ajustes (tareas de pantalla completa): la
+  barra solo existe en las tres rutas de `destinos` (`MainActivity.kt`).
 
 ## 8. Auditoría por skills (cerrada el 2026-09-26)
 
@@ -227,7 +242,7 @@ se hicieron, porque volver a leerlos evita reintroducirlos:
    `Dato()` unificado como `FilaDato`; `QtyButton` y `Stepper` fusionados en un
    solo `Stepper` de `ui/common`; el primitivo se mudó de `ui/catalog` a
    `ui/common` (lo usan catálogo y favoritos). *Pendiente*: `PriceText` ya
-   acepta `Modifier` ✓, pero `EtapaVacio` y `HojaFiltros` siguen siendo privados
+   acepta `Modifier` ✓, pero `EstadoVacio` y `HojaFiltros` siguen siendo privados
    de su pantalla.
 2. **compose-performance** ✅ — el campo de búsqueda es dueño de su estado y empuja
    al VM con debounce; el patrón `MutableStateFlow.also { launch {} }` ya no está;
@@ -237,9 +252,9 @@ se hicieron, porque volver a leerlos evita reintroducirlos:
    formateo del precio va en `remember`; `sincronizando`/`yaRefrescado` se
    exponen como `StateFlow` de solo lectura.
 3. **compose-animations** ✅ — `animateContentSize` en el stepper, `Crossfade`
-   para vacío↔resultados, `AnimatedVisibility` en el FAB y en la barra inferior.
-   *Pendiente*: transiciones de `fadeIn/out` en el `NavHost` y `AnimatedVisibility`
-   en el badge del carrito.
+   para vacío↔resultados, `AnimatedVisibility` en el FAB, en la barra inferior y
+   en el badge del carrito; `NavHost` con `fadeIn/fadeOut` de 150 ms en las cuatro
+   transiciones (`MainActivity.kt`). Sin pendientes.
 4. **styles** (Google) ✅ en lo aplicable — la API `Styles` requiere Compose
    1.12-alpha, bloqueada por AGP 9.1: no aplica. Los 7 radios sueltos quedaron en
    `MaterialTheme.shapes.*`, y ahora `ui_lint.sh` falla si vuelve a aparecer uno.
@@ -256,6 +271,17 @@ se hicieron, porque volver a leerlos evita reintroducirlos:
 ## 9. Deuda conocida (anotada, no escondida)
 
 - **La caja de imagen de la tarjeta no es 1:1** (§4): tiene alto fijo de 132 dp.
+- **En oscuro las fotos siguen siendo bloques blancos.** Vienen recortadas sobre
+  blanco y con `ContentScale.Fit` dejan un rectángulo claro dentro del contenedor
+  tonal que brilla contra la tarjeta.
+- **La tarjeta deja un hueco con nombres de una línea.** El nombre tiene alto fijo
+  (40 dp) para que la grilla no baile; con una sola línea quedan ~20 dp vacíos
+  antes del precio. Es el costo de la altura estable, no un olvido.
+- **Ajustes → `Ferias` se envuelve en 3 líneas alineadas a la derecha.** Legible,
+  pero un valor largo contra el borde derecho se lee mal.
+- **En el carrito el stepper compite con el importe.** La fila es
+  nombre | stepper | importe; los dos círculos de 48 dp son el elemento más
+  fuerte, cuando el dato que se viene a leer es la plata.
 - **La migración de Room v1→v2 no está verificada por nada**: `exportSchema = false`,
   no hay schemas exportados para diffear, no hay `MigrationTestHelper` y no hay
   tests instrumentados. Lo único que la protege es el comentario.

@@ -36,9 +36,10 @@ import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 
 /**
- * El primitivo único (DESIGN.md §4): imagen 1:1 sobre contenedor tonal, nombre
- * a 2 líneas, precio grande con cifras tabulares y control de carrito. Sin
- * categoría, sin marca, sin borde — la jerarquía la hacen el tono y el tamaño.
+ * El primitivo único (DESIGN.md §4): imagen sobre contenedor tonal (1:1 es el
+ * objetivo; hoy alto fijo, §9), nombre a 2 líneas, precio grande con cifras
+ * tabulares y control de carrito. Sin categoría, sin marca, sin borde — la
+ * jerarquía la hacen el tono y el tamaño.
  */
 @Composable
 fun RenglonProducto(

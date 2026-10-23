@@ -2,6 +2,11 @@
 
 > Documento de handoff completo. Escrito 2026-09-13. Léelo entero antes de tocar nada;
 > está ordenado de "qué es esto" a "qué falta exactamente".
+>
+> **Vigencia (2026-10-23).** Esto es un **snapshot histórico**, no el estado actual:
+> el loop de build, los defectos y el plan de §5 cambiaron después. Lo que manda hoy
+> es `DESIGN.md` (decisiones), las skills `.claude/skills/ceco-*` (reglas ejecutables)
+> y el `git log` + la CI (hechos). Si algo de acá los contradice, les creés a ellos.
 
 ## 1. Qué se está construyendo
 

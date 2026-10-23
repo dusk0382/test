@@ -74,7 +74,7 @@ emulador), `r8-mapping` (para retrazar un stack de release) y los dos APKs.
 
 ## Los tests
 
-Cuatro archivos, JVM puro, sin instrumentación. Fixtures reales en
+Siete archivos, JVM puro, sin instrumentación. Fixtures reales en
 `app/src/test/resources/fixtures/`.
 
 | test | qué protege |
@@ -84,6 +84,8 @@ Cuatro archivos, JVM puro, sin instrumentación. Fixtures reales en
 | `FormatoNombreTest` | sentence case en MAYÚSCULAS, y que no destroce lo que ya viene en mixta |
 | `RubrosTest` | la clasificación cubre ≥95 % del catálogo real, ningún rubro se lo come todo |
 | `TemaContrasteTest` | WCAG AA en claro y oscuro, sin roles sin definir |
+| `BusquedaTest` | `escaparLike` y búsqueda exacta por código de barras |
+| `UrlsTest` | el paso de http a https solo en los hosts de Cecosesola |
 
 Correr: `./gradlew :app:testDebugUnitTest` (necesita red la primera vez; en CI
 corre siempre).
@@ -147,9 +149,12 @@ Corolarios:
   (`AppDatabase.kt:33-37`) **no están verificados por nada**: no hay schemas
   exportados para diffear ni `MigrationTestHelper`. Lo único que los protege es
   un comentario.
-- `tools/ui_lint.sh` no lo corre la CI (a menos que se lo agregues), y solo
-  cubre 5 tells. No verifica contraste, ni accesibilidad, ni tokens de
-  espaciado.
+- `tools/ui_lint.sh` **sí corre en la CI**, antes de los tests (`build.yml`).
+  Cubre 7 checks de grep (emoji, `BorderStroke`, MAYÚSCULAS, hex fuera del tema,
+  radios sueltos, `.dp` de espaciado, elevación) más 3 estructurales (`Icon` sin
+  etiqueta, precio con un `Text` propio, `size()` en botones de icono). No
+  verifica contraste, semántica de accesibilidad ni orden de capas: eso queda en
+  `TemaContrasteTest` y en la lectura del código.
 - El smoke test **abre** la app. No la usa: no toca catálogo, no toca el
   escáner, no sincroniza de verdad. Un bug de layout o de datos no lo ve.
 - El tamaño del APK y el presupuesto de performance no se miden en ningún lado.

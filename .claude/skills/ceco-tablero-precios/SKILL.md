@@ -48,8 +48,8 @@ como color de texto, fallás.
 | `LocalColoresPrecio.current.acento` | `#B93300` **5.66:1** | `#FFB59B` **10.07:1** |
 
 `primary` como relleno y como texto tienen requisitos de contraste distintos;
-por eso hay dos tokens. La tarjeta de catálogo lo usa bien
-(`CatalogScreen.kt:416`).
+por eso hay dos tokens. El precio lo pinta `PriceText`
+(`ui/common/Format.kt`), y la tarjeta lo usa bien vía `RenglonProducto`.
 
 ### 2. La jerarquía se hace con tamaño y peso, no con bordes
 
@@ -70,16 +70,17 @@ Lo único que cambia por pantalla es si el producto ya está en el carrito
 
 ```
 ┌──────────────────┐
-│  imagen (1:1)    │  ♡        ← contenedor tonal, sin borde
+│  imagen          │  ♡        ← contenedor tonal, sin borde
 ├──────────────────┤
 │ Nombre a 2 líneas           ← bodyMedium, sentence case
-│ Bs 1.365,50      (+2,1 %)   ← cifras tabulares, acento de precio
-│                        [ − 2 + ]  o  [ + ]
+│ Bs 1.365,50                 ← cifras tabulares, acento de precio
+│              [ − 2 + ]  o  [ + ]   ← control debajo, a la derecha
 └──────────────────┘
 ```
 
-- **Imagen 1:1 siempre**, `ContentScale.Fit` sobre `surfaceContainerHighest`
-  (las fotos vienen recortadas sobre blanco: el tono evita el bloque blanco).
+- **Imagen 1:1 como objetivo**, `ContentScale.Fit` sobre `surfaceContainerHighest`.
+  *Deuda*: hoy el alto es fijo (`AltoImagenTarjeta = 132.dp`), no 1:1; y en oscuro
+  las fotos sobre blanco siguen dejando un bloque claro. Ver `DESIGN.md` §9.
 - Nombre: **máximo 2 líneas** con elipsis y altura estable.
 - Precio: **cifras tabulares** (`tnum`), separador de miles es-VE.
 - **Nada más**: ni categoría, ni marca, ni descripción.
@@ -98,10 +99,10 @@ tags con basura operativa.
 
 ### 5. Nombres en MAYÚSCULAS → sentence case
 
-`formatearNombreProducto()` lo resuelve, pero **hay que llamarlo en todos
-lados**: hoy la tarjeta lo aplica y el detalle y el carrito no, así que el
-mismo producto se ve distinto según dónde. Las marcas que ya vienen en mixta
-no se tocan (no se destrozan).
+`formatearNombreProducto()` lo resuelve y **se llama en las tres pantallas que
+muestran un producto** (`RenglonProducto`, `DetailScreen`, `CartScreen`). Una
+pantalla nueva que pinte un nombre también tiene que llamarlo. Las marcas que ya
+vienen en mixta no se tocan (no se destrozan): un nombre mixto queda literal.
 
 ## Los tokens ya existen — usalos
 
@@ -113,7 +114,7 @@ Nada de números sueltos. Cada token tiene un archivo y una razón.
 | formas | `MaterialTheme.shapes.*` (8/12/16/20/28) | `theme/Forma.kt` |
 | precio | `PrecioDetalle`, `PrecioTarjeta`, `PrecioApoyo` | `theme/Type.kt:73-83` |
 | color de precio | `LocalColoresPrecio.current` | `theme/Theme.kt:118` |
-| moneda | `LocalUsdPrecio` | `ui/common/PrecioVisible.kt:13` |
+| moneda | `LocalUsdPrecio` | `ui/common/PrecioVisible.kt` |
 
 Base 4 dp. Un `.dp` suelto en una pantalla es un defecto, no una excepción
 (`Espacio.kt:6-7`).
@@ -136,6 +137,8 @@ de imagen y superficies usan radios medios.
 10. Sin roles de color sin definir (caen al lila de Material3: de ahí salieron
     el buscador rosado y los bordes violeta).
 11. Sin blanco sobre el naranja de marca.
+12. Sin etiquetas ni descripciones secundarias innecesarias: que el diseño
+    explique, no un subtítulo.
 
 **Contar tells es la puerta de calidad**: al cerrar un rediseño se revisa esta
 lista. Cuatro o más = no se entrega.
@@ -215,11 +218,13 @@ el lint**.
 3. **Decimales desiguales en una columna de precios.** El patrón era `#,##0.##`:
    "2,1" al lado de "6,42" y "5,05". En un cartel de precios la comparación es de un
    vistazo y eso rompe la alineación. El dinero va con **dos decimales siempre**.
-4. **"USD" etiquetando números que son CEC.** El toggle de Ajustes decía "Mostrar
-   precios en USD" y las tarjetas decían "USD 2,1", pero el valor es el precio
-   solidario en unidades CEC — el propio payload lo dice
-   (`priceBase.currencyCode == "CEC"`). Ponerle USD mentía dos veces: la etiqueta
-   y el total del carrito, que suma esos mismos números. Ahora dice **CEC**.
+4. **La etiqueta del precio solidario.** El toggle de Ajustes y las tarjetas dicen
+   **USD**, no CEC. La API llama `CEC` a su unidad base, pero su propio rate la
+   define como 1 CEC = 1 USD (`forSales: [{USD,1},{VED,…}]`), así que CEC es un
+   código interno y no una moneda que el usuario lea. Lo que sí hay que cuidar es
+   no mezclar monedas: el precio solidario se compara contra su `oldPrice` (los
+   dos en USD), nunca contra el precio del mirror en Bs. Detalle en `DESIGN.md`
+   §5 y en la skill `ceco-precios-datos`.
 
 Y dos cosas que son de jerarquía, no de función:
 
@@ -277,13 +282,9 @@ WCAG se **mide**, no se estima.
 lista se froze cuando el test se escribió. **Un par nuevo que nadie testea no
 está verificado, por mucho que el test esté verde.**
 
-Hoy hay dos pares que la app pinta y el test **no** cubre, y los dos fallan:
-
-| par | ratio | dónde |
-|---|---|---|
-| `primary` sobre `surface` | 3.26:1 | precio en detalle y carrito |
-| `primary` sobre `surfaceContainerHighest` | 2.75:1 | corazón de favorito activo |
-
-Cuando corrijas uno, **agregá el par al `TemaContrasteTest` en el mismo commit**.
-Un fix de contraste sin su caso de test es un fix que se puede revertir sin que
-nada se avise.
+Los dos pares que históricamente fallaban (`primary` sobre `surface`, 3.26:1, y
+sobre `surfaceContainerHighest`, 2.75:1) ya están **arreglados y cubiertos** por
+`TemaContrasteTest` (`157e42d`): el precio usa `LocalColoresPrecio.acento` y el
+corazón, `onSurfaceVariant`. La regla sigue viva: **un par nuevo va al test en el
+mismo commit**. Un fix de contraste sin su caso de test se puede revertir sin que
+nada avise.
