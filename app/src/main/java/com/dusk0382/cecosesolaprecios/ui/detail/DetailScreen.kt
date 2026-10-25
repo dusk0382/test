@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.dusk0382.cecosesolaprecios.domain.esBarcodeValido
 import com.dusk0382.cecosesolaprecios.domain.formatearNombreProducto
 import com.dusk0382.cecosesolaprecios.ui.common.DeltaBadge
 import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
@@ -213,7 +214,7 @@ fun DetailScreen(
                     ?.let { FilaDato("Presentación", it) }
                 prod.categoria?.takeUnless { it.isBlank() }
                     ?.let { FilaDato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
-                prod.barcode?.takeUnless { it.isBlank() }?.let { FilaDato("Código de barras", it) }
+                prod.barcode?.takeIf { esBarcodeValido(it) }?.let { FilaDato("Código de barras", it) }
                 prod.updatedAt?.takeUnless { it.isBlank() }
                 ?.let { FilaDato("Actualizado", formatearFechaIso(it)) }
             }

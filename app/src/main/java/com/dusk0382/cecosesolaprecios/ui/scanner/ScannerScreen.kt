@@ -70,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
+import com.dusk0382.cecosesolaprecios.domain.esBarcodeValido
 import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -119,7 +120,7 @@ class ScannerViewModel @Inject constructor(
     fun onBarcode(texto: String?) {
         val codigo = texto
             ?.filter(Char::isDigit)
-            ?.takeIf { it.length in 8..14 }
+            ?.takeIf { esBarcodeValido(it) }
             ?: return
         if (_buscando.value) return
         _buscando.value = true

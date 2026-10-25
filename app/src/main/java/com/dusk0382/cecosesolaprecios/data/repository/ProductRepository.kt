@@ -18,6 +18,7 @@ import com.dusk0382.cecosesolaprecios.data.remote.HttpClients
 import com.dusk0382.cecosesolaprecios.data.remote.OfficialApi
 import com.dusk0382.cecosesolaprecios.data.remote.RepoApi
 import com.dusk0382.cecosesolaprecios.data.remote.dto.PayloadOficial
+import com.dusk0382.cecosesolaprecios.data.remote.dto.PreciosRepoDto
 import com.dusk0382.cecosesolaprecios.data.sync.EnrichSyncWorker
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -167,14 +168,29 @@ class ProductRepository @Inject constructor(
     suspend fun syncBase(): Boolean = withContext(Dispatchers.IO) {
         val dto = repoApi.getPrecios()
         val fechaGuardada = metaDao.get(MetaKeys.REPO_DATE)
-        if (fechaGuardada == dto.fechaActualizacion) return@withContext false
+        val esquemaGuardado = metaDao.get(MetaKeys.MIRROR_ID_SCHEME).orEmpty()
+        val esquemaActual = dto.idScheme.orEmpty()
+        // Un cambio de esquema (ids posicionales -> _id de la API) o el primer
+        // arranque con esta versión exige reconstruir el mirror aunque la fecha
+        // no haya cambiado. Es la reparación automática de bases con filas
+        // quimera; el usuario no tiene que borrar datos.
+        val necesitaReconstruir = metaDao.get(MetaKeys.CATALOG_REBUILD) != REBUILD_VERSION ||
+            esquemaActual != esquemaGuardado
+        if (fechaGuardada == dto.fechaActualizacion && !necesitaReconstruir) return@withContext false
 
         val filas = db.withTransaction {
             val existentes = productDao.all()
-            val nuevas = MergeEngine.filasDesdeRepo(dto, existentes)
-            productDao.upsertAll(nuevas)
+            val nuevas = if (necesitaReconstruir) {
+                reconstruirCatalogo(dto, existentes)
+            } else {
+                val incremental = MergeEngine.filasDesdeRepo(dto, existentes)
+                productDao.upsertAll(incremental)
+                incremental
+            }
             metaDao.put(MetaEntity(MetaKeys.REPO_DATE, dto.fechaActualizacion))
             metaDao.put(MetaEntity(MetaKeys.REPO_SYNC_AT, System.currentTimeMillis().toString()))
+            metaDao.put(MetaEntity(MetaKeys.MIRROR_ID_SCHEME, esquemaActual))
+            metaDao.put(MetaEntity(MetaKeys.CATALOG_REBUILD, REBUILD_VERSION))
             // El mirror declara cuántos productos trae. Si no coincide con lo que
             // queda en la base, algo se perdió en el camino: antes se parseaba este
             // campo y nunca se cruzaba, así que la pérdida pasaba inadvertida.
@@ -191,18 +207,95 @@ class ProductRepository @Inject constructor(
             }
             nuevas
         }
-        Log.i(TAG, "syncBase: ${filas.size} filas desde el mirror (fecha ${dto.fechaActualizacion})")
+        Log.i(
+            TAG,
+            "syncBase: ${filas.size} filas desde el mirror (fecha ${dto.fechaActualizacion})" +
+                if (necesitaReconstruir) " [reconstrucción]" else "",
+        )
 
         // El mirror cambia ~3 veces/día pero el enrich programado es diario: sin
         // esto el CEC podía quedar 16 h atrás de la lista base (capturas: base
         // 19:45 con enriquecido de las 03:05). El umbral de 6 h evita encolar en
         // cada refresh manual cuando hace poco que se enriqueció. Encolar no
         // puede tumbar el sync base: si WorkManager falla, la base ya está bien.
-        if (enrichViejo(ENRICH_MAX_AGE_MS)) {
+        // Si reconstruimos, el enrich es obligatorio: las filas nuevas no tienen CEC.
+        if (necesitaReconstruir || enrichViejo(ENRICH_MAX_AGE_MS)) {
             runCatching { requestEnrich() }
                 .onFailure { Log.w(TAG, "syncBase: no se pudo encolar el enrich: ${it.message}", it) }
         }
         true
+    }
+
+    /**
+     * Reconstruye solo las filas del mirror. Las filas solo-API se conservan y
+     * pueden reutilizarse por nombre, de modo que sus localId no cambian. Los
+     * favoritos y el carrito de las filas viejas se reasignan a la fila nueva
+     * con el mismo nombre normalizado (y precio más cercano si el nombre se
+     * repite). Es la reparación única de bases que mezclaron productos porque
+     * el mirror reutilizaba ids posicionales.
+     */
+    private suspend fun reconstruirCatalogo(
+        dto: PreciosRepoDto,
+        existentes: List<ProductEntity>,
+    ): List<ProductEntity> {
+        val viejosMirror = existentes.filter { it.repoId != null }
+        val apiOnly = existentes.filter { it.repoId == null }
+        val idsViejos = viejosMirror.map { it.localId }.toSet()
+        val porIdViejo = viejosMirror.associateBy { it.localId }
+        val favoritos = if (idsViejos.isEmpty()) {
+            emptyList()
+        } else {
+            db.favoriteDao().all().filter { it.productId in idsViejos }
+        }
+        val carrito = if (idsViejos.isEmpty()) {
+            emptyList()
+        } else {
+            db.cartDao().all().filter { it.productId in idsViejos }
+        }
+
+        if (idsViejos.isNotEmpty()) productDao.deleteByIds(idsViejos.toList())
+
+        // Las filas solo-API se conservan; si el mirror trae el mismo nombre,
+        // filasDesdeRepo las reutiliza y no se pierden localId ni favoritos.
+        val filas = MergeEngine.filasDesdeRepo(dto, apiOnly)
+        productDao.upsertAll(filas)
+
+        val despues = productDao.all()
+        val porNombre = despues.groupBy { it.nombreNormalizado }
+        fun destino(viejo: ProductEntity): ProductEntity? {
+            val candidatos = porNombre[viejo.nombreNormalizado].orEmpty()
+            return candidatos.minByOrNull { kotlin.math.abs(it.precioBs - viejo.precioBs) }
+        }
+
+        val carritoDestinos = db.cartDao().all().map { it.productId }.toMutableSet()
+        favoritos.forEach { favorito ->
+            val viejo = porIdViejo[favorito.productId] ?: return@forEach
+            val nuevo = destino(viejo)
+            if (nuevo == null) {
+                db.favoriteDao().remove(favorito.productId)
+                return@forEach
+            }
+            if (nuevo.localId != favorito.productId) {
+                db.favoriteDao().add(FavoriteEntity(nuevo.localId))
+                db.favoriteDao().remove(favorito.productId)
+            }
+        }
+        carrito.forEach { item ->
+            val viejo = porIdViejo[item.productId] ?: return@forEach
+            val nuevo = destino(viejo)
+            if (nuevo == null) {
+                db.cartDao().remove(item.productId)
+                return@forEach
+            }
+            if (nuevo.localId != item.productId) {
+                if (nuevo.localId !in carritoDestinos) {
+                    db.cartDao().upsert(CartItemEntity(nuevo.localId, item.quantity, item.addedAt))
+                    carritoDestinos += nuevo.localId
+                }
+                db.cartDao().remove(item.productId)
+            }
+        }
+        return filas
     }
 
     /** true si nunca hubo un enrich exitoso o si pasó más de [maxAgeMillis]. */
@@ -294,6 +387,9 @@ class ProductRepository @Inject constructor(
 
     private companion object {
         const val TAG = "CecoSync"
+
+        /** Versión del algoritmo de reconstrucción de la base instalada. */
+        const val REBUILD_VERSION = "api-ids-v1"
 
         /** Mismo ritmo que el mirror: 6 h. Evita encolar en cada refresh manual
          *  cuando hace poco que se enriqueció. */

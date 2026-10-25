@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
@@ -34,6 +36,17 @@ object SyncScheduler {
             PeriodicWorkRequestBuilder<EnrichSyncWorker>(1, TimeUnit.DAYS)
                 .setConstraints(connected)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 2, TimeUnit.HOURS)
+                .build(),
+        )
+
+        // Reparación automática al abrir la app: syncBase compara el esquema de
+        // ids y la versión de reconstrucción; si la base viene de la época de
+        // ids posicionales, reconstruye el mirror y remapea favoritos/carrito.
+        wm.enqueueUniqueWork(
+            "sync_base_boot",
+            ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<BaseSyncWorker>()
+                .setConstraints(connected)
                 .build(),
         )
     }

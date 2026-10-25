@@ -91,6 +91,10 @@ class BusquedaTest {
         assertEquals("", barcodeDeConsulta("1234567"))
         // 13 dígitos pero con letras no es un barcode.
         assertEquals("", barcodeDeConsulta("75910820003AB"))
+        // La API usa ceros como relleno; no son identidades.
+        assertEquals("", barcodeDeConsulta("00000000"))
+        assertEquals("", barcodeDeConsulta("0000000000000"))
+        assertEquals("", barcodeDeConsulta("0000000000000000000000"))
     }
 
     /**

@@ -121,6 +121,9 @@ interface ProductDao {
     @Query("UPDATE products SET precioBs = COALESCE(precioCec, 0.0) * :tasa WHERE repoId IS NULL")
     suspend fun updateApiOnlyBs(tasa: Double)
 
+    @Query("DELETE FROM products WHERE localId IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
     @Upsert
     suspend fun upsertAll(items: List<ProductEntity>)
 
@@ -130,6 +133,9 @@ interface ProductDao {
 interface FavoriteDao {
     @Query("SELECT productId FROM favorites")
     fun idsFlow(): Flow<List<Long>>
+
+    @Query("SELECT * FROM favorites")
+    suspend fun all(): List<FavoriteEntity>
 
     @Query(
         """
@@ -175,6 +181,9 @@ interface CartDao {
 
     @Query("SELECT quantity FROM cart_items WHERE productId = :id")
     fun quantityOfFlow(id: Long): Flow<Int?>
+
+    @Query("SELECT * FROM cart_items")
+    suspend fun all(): List<CartItemEntity>
 
     @Query("SELECT COUNT(*) FROM cart_items")
     fun countFlow(): Flow<Int>

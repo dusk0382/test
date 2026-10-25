@@ -68,4 +68,6 @@ object MetaKeys {
     const val API_SYNC_AT = "api_sync_at"
     const val API_RATE_VED = "api_rate_ved_per_cec"
     const val BRANCHES_JSON = "api_branches_json"
+    const val CATALOG_REBUILD = "catalog_rebuild_version"
+    const val MIRROR_ID_SCHEME = "mirror_id_scheme"
 }

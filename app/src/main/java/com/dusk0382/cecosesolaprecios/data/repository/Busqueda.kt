@@ -1,5 +1,6 @@
 package com.dusk0382.cecosesolaprecios.data.repository
 
+import com.dusk0382.cecosesolaprecios.domain.esBarcodeValido
 import com.dusk0382.cecosesolaprecios.domain.normalizarNombre
 
 /**
@@ -37,6 +38,7 @@ internal fun escaparLike(texto: String): String = texto
  * Se aceptan de 8 a 14 dígitos, el mismo rango que el escáner: EAN-8, UPC-A (12),
  * EAN-13 y GTIN-14. Antes solo se reconocían 8 y 13, así que un UPC-A escaneado
  * funcionaba pero escrito a mano caía en la rama de texto y no encontraba nada.
+ * Los códigos de puros ceros no cuentan: la API los usa como relleno.
  *
  * Por qué exacta y no un `LIKE`: un barcode es un identificador, no un texto. Una
  * coincidencia parcial sobre una columna sin índice recorre todos los renglones
@@ -51,6 +53,5 @@ internal fun escaparLike(texto: String): String = texto
  */
 internal fun barcodeDeConsulta(query: String): String {
     val cruda = query.trim()
-    val esBarcode = cruda.length in 8..14 && cruda.all { it.isDigit() }
-    return if (esBarcode) cruda else ""
+    return if (esBarcodeValido(cruda)) cruda else ""
 }

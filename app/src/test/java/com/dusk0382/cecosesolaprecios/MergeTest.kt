@@ -197,4 +197,19 @@ class MergeTest {
         assertEquals("ambas", filas[0].fuente)
         assertEquals(33.0, filas[0].precioBs, 0.001)
     }
+
+    @Test
+    fun `un producto del mirror con nombre vacio no entra al catalogo`() {
+        val dto = PreciosRepoDto(
+            fechaActualizacion = "2026-10-25 00:00:00",
+            totalProductos = 2,
+            productos = listOf(
+                ProductoRepoDto(id = "1", nombre = "   ", precio = 10.0, imagen = null),
+                ProductoRepoDto(id = "2", nombre = "Arroz", precio = 20.0, imagen = null),
+            ),
+        )
+        val filas = MergeEngine.filasDesdeRepo(dto, emptyList())
+        assertEquals(1, filas.size)
+        assertEquals("Arroz", filas[0].nombre)
+    }
 }

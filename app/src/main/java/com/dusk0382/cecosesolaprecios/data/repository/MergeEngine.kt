@@ -6,6 +6,7 @@ import com.dusk0382.cecosesolaprecios.data.remote.dto.PreciosRepoDto
 import com.dusk0382.cecosesolaprecios.data.remote.dto.activo
 import com.dusk0382.cecosesolaprecios.data.remote.dto.toDoubleOrNull
 import com.dusk0382.cecosesolaprecios.domain.aHttps
+import com.dusk0382.cecosesolaprecios.domain.esBarcodeValido
 import com.dusk0382.cecosesolaprecios.domain.normalizarNombre
 import com.dusk0382.cecosesolaprecios.domain.rubroDe
 import kotlinx.serialization.json.Json
@@ -50,6 +51,9 @@ object MergeEngine {
 
         return dto.productos.mapNotNull { p ->
             val normal = normalizarNombre(p.nombre)
+            // Un nombre vacío no es un producto: no se inserta una tarjeta sin
+            // nombre. Si ya existía de una base vieja, la reconstrucción la borra.
+            if (normal.isBlank()) return@mapNotNull null
             val porId = porRepoId[p.id]
             val porNombreNorm = porNombre[normal]?.takeIf { normal !in claimedPorNombre }
             val vieja = porId ?: porNombreNorm
@@ -95,7 +99,9 @@ object MergeEngine {
                     categoria = p.tags?.firstOrNull()?.lowercase(),
                     marca = p.brand?.takeIf { it.isNotBlank() },
                     presentacion = p.presentation?.trim()?.takeIf { it.isNotEmpty() },
-                    barcode = p.barcode?.takeIf { it.isNotBlank() },
+                    // La API usa ceros como relleno y códigos internos de 7
+                    // dígitos; no son identidades válidas para matchear.
+                    barcode = p.barcode?.takeIf { esBarcodeValido(it) },
                     // La API oficial sirve las imágenes en http. Se sube el esquema al
                     // guardar: los dos hosts de Cecosesola responden por https, y así la app
                     // no necesita cleartext (ver domain/Urls.kt).
@@ -119,7 +125,9 @@ object MergeEngine {
         tasaVedPorCec: Double?,
     ): List<ProductEntity> {
         val porApiId = existentes.filter { it.apiId != null }.associateBy { it.apiId!! }
-        val porBarcode = existentes.filter { it.barcode != null }.associateBy { it.barcode!! }
+        val porBarcode = existentes
+            .filter { it.barcode != null && esBarcodeValido(it.barcode) }
+            .associateBy { it.barcode!! }
         // Solo filas sin apiId son candidatas al fallback por nombre: una fila con
         // apiId pertenece a otro producto de la API aunque se llame igual.
         val porNombre = existentes.filter { it.apiId == null }
@@ -149,7 +157,7 @@ object MergeEngine {
                 categoria = e.categoria,
                 marca = e.marca,
                 presentacion = e.presentacion,
-                barcode = e.barcode,
+                barcode = e.barcode?.takeIf { esBarcodeValido(it) },
                 imagenGrandeUrl = e.imagen,
                 precioCec = e.precioCec,
                 precioAnteriorCec = e.precioAnteriorCec,
@@ -171,7 +179,7 @@ object MergeEngine {
                 categoria = e.categoria,
                 marca = e.marca,
                 presentacion = e.presentacion,
-                barcode = e.barcode,
+                barcode = e.barcode?.takeIf { esBarcodeValido(it) },
                 precioCec = e.precioCec,
                 precioAnteriorCec = e.precioAnteriorCec,
                 updatedAt = e.updatedAt,

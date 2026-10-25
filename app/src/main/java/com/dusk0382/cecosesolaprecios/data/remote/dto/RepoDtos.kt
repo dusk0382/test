@@ -8,6 +8,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class PreciosRepoDto(
     @SerialName("fecha_actualizacion") val fechaActualizacion: String,
+    /** "api-v1" cuando el mirror usa los _id estables de la API. */
+    @SerialName("id_scheme") val idScheme: String? = null,
     @SerialName("total_productos") val totalProductos: Int = 0,
     @SerialName("productos") val productos: List<ProductoRepoDto>,
 )
