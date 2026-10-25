@@ -1,6 +1,7 @@
 package com.dusk0382.cecosesolaprecios.ui.catalog
 
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dusk0382.cecosesolaprecios.data.local.ClaseConteo
@@ -28,38 +29,93 @@ enum class Orden(val label: String, val key: String) {
     PRECIO_DESC("Mayor precio", "precio_desc"),
 }
 
+/**
+ * Clave estable de un conjunto de resultados. La usan el ViewModel y la pantalla
+ * para saber si la lista que se está mostrando corresponde a la búsqueda, los
+ * filtros y el orden actuales.
+ *
+ * Sin ella, restaurar el scroll era adivinar: se aplicaba el índice contra la
+ * lista anterior (la que todavía no había sido reemplazada por Room) y caía en
+ * otro producto, o se recortaba al último.
+ */
+internal fun claveCatalogo(consulta: String, clases: Set<String>, orden: Orden): String =
+    listOf(
+        consulta.trim().lowercase(),
+        clases.sorted().joinToString(","),
+        orden.key,
+    ).joinToString("|")
+
+/** La lista de la grilla junto con la clave del estado que la produjo. */
+data class ResultadosCatalogo(
+    val clave: String,
+    val productos: List<ProductEntity>,
+    /**
+     * true solo en el valor inicial del `stateIn`: la primera consulta a Room
+     * todavía no respondió. Sin esta señal, el primer frame de la app (y el de
+     * una vuelta después de que el proceso muera) mostraba "Aún no hay precios
+     * cargados" —una afirmación falsa— y ofrecía sincronizar datos que sí
+     * estaban en la base.
+     */
+    val inicial: Boolean = false,
+)
+
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
     private val repo: ProductRepository,
+    private val estadoGuardado: SavedStateHandle,
 ) : ViewModel() {
 
     /**
-     * Texto de búsqueda. La UI es dueña del campo (el tecleo no recompone la
-     * pantalla completa — DESIGN.md §8.2); aquí sólo llega el valor final y el
-     * debounce decide cuándo reconsultar.
+     * Texto de búsqueda. La UI mantiene el campo y manda cada tecla; acá el
+     * debounce decide cuándo se reconsulta. Es la fuente única para la grilla y
+     * para los conteos de rubros.
+     *
+     * Vive también en el `SavedStateHandle`: el campo era `rememberSaveable` y
+     * el ViewModel no, así que al morir el proceso el texto volvía y la consulta
+     * arrancaba en "". La pantalla quedaba mostrando un listado que no
+     * correspondía a lo escrito hasta que un `LaunchedEffect` lo corregía, y los
+     * filtros y el orden se perdían del todo. Con el estado completo acá, la
+     * primera consulta ya se hace con lo que el usuario dejó.
      */
-    private val _busqueda = MutableStateFlow("")
+    private val _busqueda = MutableStateFlow(
+        estadoGuardado.get<String>(CLAVE_BUSQUEDA).orEmpty(),
+    )
 
     /** Clases (rubros) seleccionadas: multi-selección, OR entre sí. */
-    private val _clases = MutableStateFlow<Set<String>>(emptySet())
+    private val _clases = MutableStateFlow(
+        estadoGuardado.get<ArrayList<String>>(CLAVE_CLASES).orEmpty().toSet(),
+    )
     val clasesSel: StateFlow<Set<String>> = _clases.asStateFlow()
 
-    private val _orden = MutableStateFlow(Orden.NOMBRE)
+    private val _orden = MutableStateFlow(
+        Orden.entries.firstOrNull { it.key == estadoGuardado.get<String>(CLAVE_ORDEN) }
+            ?: Orden.NOMBRE,
+    )
     val orden: StateFlow<Orden> = _orden.asStateFlow()
 
     // `asStateFlow()` en el lado lectura: exponer el MutableStateFlow dejaba que
     // cualquier composable mutara el estado de sync de la pantalla.
     private val _sincronizando = MutableStateFlow(false)
-    private val _yaRefrescado = MutableStateFlow(false)
 
     val sincronizando: StateFlow<Boolean> = _sincronizando.asStateFlow()
 
-    /** true cuando ya hubo al menos un intento de refresco en esta sesión. */
-    val yaRefrescado: StateFlow<Boolean> = _yaRefrescado.asStateFlow()
+    /**
+     * Mensaje de un refresh que falló. La pantalla lo muestra en un snackbar y
+     * lo consume; sin esto, `refresh()` fallaba en silencio y el usuario no
+     * tenía forma de saber que la lista seguía siendo la vieja.
+     */
+    private val _mensaje = MutableStateFlow<String?>(null)
+    val mensaje: StateFlow<String?> = _mensaje.asStateFlow()
 
-    val total: StateFlow<Int> = repo.countFlow()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    /**
+     * Total de productos en la base. `null` hasta que Room responde: con un 0
+     * inicial, una lista vacía que llega antes que el conteo hacía que la
+     * pantalla afirmara "Aún no hay precios cargados" —una mentira— en cada
+     * búsqueda sin resultados.
+     */
+    val total: StateFlow<Int?> = repo.countFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
      * Texto de búsqueda ya asentado: un solo temporizador de debounce para toda la
@@ -124,47 +180,65 @@ class CatalogViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     /**
-     * Resultados de la grilla. El debounce va solo sobre la búsqueda: cambiar un
-     * filtro o el orden tiene que consultarse ya, no 220 ms después, porque son
-     * toques a propósito y no tecleo.
+     * true si el último enrich exitoso tiene más de 12 h (o nunca hubo uno).
+     * El catálogo lo usa para avisar que los precios solidarios en USD pueden
+     * estar viejos; al terminar un enrich, `API_SYNC_AT` cambia y el aviso se va.
      */
-    val productos: StateFlow<List<ProductEntity>> = combine(
+    val enrichViejo: StateFlow<Boolean> = repo.apiSyncAtFlow()
+        .map { ultimo -> ultimo == null || System.currentTimeMillis() - ultimo > 12L * 60 * 60 * 1000 }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /**
+     * Resultados de la grilla **y la clave que los produjo**. El debounce va solo
+     * sobre la búsqueda: cambiar un filtro o el orden tiene que consultarse ya, no
+     * 220 ms después, porque son toques a propósito y no tecleo.
+     *
+     * La clave permite saber cuándo la lista que está en pantalla es la del
+     * estado actual. Es lo que hace que el scroll se restaure contra la lista
+     * nueva y no contra la anterior, que todavía puede estar mostrándose
+     * mientras Room responde.
+     */
+    val resultados: StateFlow<ResultadosCatalogo> = combine(
         consultaAsentada,
         _clases,
         _orden,
     ) { q, clases, ord -> Triple(q, clases, ord) }
         .flatMapLatest { (q, clases, ord) ->
+            val clave = claveCatalogo(q, clases, ord)
             repo.searchFlow(q, clases.sorted(), ord.key)
+                .map { ResultadosCatalogo(clave, it) }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    /** ¿Hay algo más que la búsqueda afectando el conjunto de resultados? Lo usa
-     *  el estado vacío para decir la causa correcta y ofrecer la salida. */
-    val hayFiltros: StateFlow<Boolean> = _clases
-        .map { it.isNotEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    fun limpiarBusqueda() {
-        _busqueda.value = ""
-    }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            // La clave vacía no puede ser la de ningún estado real (`claveCatalogo`
+            // siempre arma algo con los separadores), así que la pantalla sabe que
+            // esta lista todavía no corresponde a la consulta actual.
+            ResultadosCatalogo(clave = "", productos = emptyList(), inicial = true),
+        )
 
     /** Valor inicial del campo (la UI es la dueña después de esto). */
     fun busquedaInicial(): String = _busqueda.value
 
     fun onBusquedaChange(v: String) {
         _busqueda.value = v
+        estadoGuardado[CLAVE_BUSQUEDA] = v
     }
 
     fun toggleClase(clase: String) {
-        _clases.value = if (clase in _clases.value) _clases.value - clase else _clases.value + clase
+        val nuevas = if (clase in _clases.value) _clases.value - clase else _clases.value + clase
+        _clases.value = nuevas
+        estadoGuardado[CLAVE_CLASES] = ArrayList(nuevas)
     }
 
     fun limpiarFiltros() {
         _clases.value = emptySet()
+        estadoGuardado[CLAVE_CLASES] = ArrayList<String>()
     }
 
     fun onOrdenClick(o: Orden) {
         _orden.value = o
+        estadoGuardado[CLAVE_ORDEN] = o.key
     }
 
     fun setCantidad(productId: Long, cantidad: Int) = viewModelScope.launch {
@@ -180,19 +254,44 @@ class CatalogViewModel @Inject constructor(
      *
      *  El `finally` no es cosmético: sin él, si `requestEnrich()` lanzaba, el flag
      *  `sincronizando` se quedaba en `true` para siempre y el pull-to-refresh
-     *  quedaba colgado con el FAB escondido sin forma de recuperarlo. */
+     *  quedaba colgado sin forma de recuperarlo.
+     *
+     *  Cada paso se captura por separado para poder decir qué falló: sin red no
+     *  se actualizó nada; con la base actualizada pero el worker sin encolar, la
+     *  lista vieja ya sirve y solo se perdió el enriquecimiento. */
     fun refresh() {
         if (_sincronizando.value) return
         viewModelScope.launch {
             _sincronizando.value = true
             try {
-                runCatching { repo.syncBase() }
-                    .onFailure { Log.w("CecoSync", "refresh: syncBase fallo: ${it.message}", it) }
-                repo.requestEnrich()
-                _yaRefrescado.value = true
+                val sync = runCatching { repo.syncBase() }
+                sync.exceptionOrNull()?.let {
+                    Log.w("CecoSync", "refresh: syncBase fallo: ${it.message}", it)
+                }
+                val enrich = if (sync.isSuccess) runCatching { repo.requestEnrich() } else null
+                enrich?.exceptionOrNull()?.let {
+                    Log.w("CecoSync", "refresh: requestEnrich fallo: ${it.message}", it)
+                }
+                _mensaje.value = when {
+                    sync.isFailure -> "No se pudo actualizar la lista. Revisá tu conexión."
+                    enrich?.isFailure == true ->
+                        "La lista se actualizó, pero no se pudo iniciar el enriquecimiento."
+                    else -> null
+                }
             } finally {
                 _sincronizando.value = false
             }
         }
+    }
+
+    /** La pantalla ya mostró el mensaje: no debe reaparecer al recomponer. */
+    fun consumirMensaje() {
+        _mensaje.value = null
+    }
+
+    private companion object {
+        const val CLAVE_BUSQUEDA = "busqueda"
+        const val CLAVE_CLASES = "clases"
+        const val CLAVE_ORDEN = "orden"
     }
 }

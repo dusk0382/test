@@ -1,5 +1,7 @@
 package com.dusk0382.cecosesolaprecios.ui.detail
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -43,10 +45,11 @@ import com.dusk0382.cecosesolaprecios.ui.common.FilaDato
 import com.dusk0382.cecosesolaprecios.ui.common.PriceText
 import com.dusk0382.cecosesolaprecios.ui.common.Stepper
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
-import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 import com.dusk0382.cecosesolaprecios.ui.theme.PlatoImagen
 import com.dusk0382.cecosesolaprecios.ui.theme.PrecioDetalle
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
+import com.dusk0382.cecosesolaprecios.ui.common.formatFechaHora
+import com.dusk0382.cecosesolaprecios.ui.common.formatearFechaIso
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,6 +62,7 @@ fun DetailScreen(
     val p = (estado as? EstadoDetalle.Listo)?.producto
     val fav by vm.esFavorito.collectAsStateWithLifecycle()
     val qty by vm.cantidadEnCarrito.collectAsStateWithLifecycle()
+    val ultimaUsd by vm.ultimaActualizacionUsd.collectAsStateWithLifecycle()
 
     Scaffold(
         // El Scaffold de MainActivity ya aplicó los insets del sistema; sin esto
@@ -96,8 +100,9 @@ fun DetailScreen(
                             // la tarjeta.
                             contentDescription = if (fav) "Quitar de favoritos"
                             else "Agregar a favoritos",
-                            tint = if (fav) LocalColoresPrecio.current.acento
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            // El acento de precio está reservado al precio (§5);
+                            // el relleno del corazón ya distingue el estado.
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 },
@@ -174,6 +179,26 @@ fun DetailScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            // El precio solidario puede ser viejo sin que la app falle: pasadas
+            // 12 h se avisa, sin color de error. Si está fresco no lleva etiqueta;
+            // si no hay fecha se dice, en vez de fingir que está al día.
+            if (prod.precioCec != null) {
+                val ultima = ultimaUsd
+                val aviso = when {
+                    ultima == null -> "Precio solidario sin fecha de actualización."
+                    System.currentTimeMillis() - ultima > 12L * 60 * 60 * 1000 ->
+                        "Precio solidario del ${formatFechaHora(ultima)}; puede estar desactualizado."
+                    else -> null
+                }
+                if (aviso != null) {
+                    Spacer(Modifier.height(Espacio.xs))
+                    Text(
+                        aviso,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             Spacer(Modifier.height(Espacio.l))
             Column(
@@ -190,26 +215,36 @@ fun DetailScreen(
                     ?.let { FilaDato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
                 prod.barcode?.takeUnless { it.isBlank() }?.let { FilaDato("Código de barras", it) }
                 prod.updatedAt?.takeUnless { it.isBlank() }
-                ?.let { FilaDato("Actualizado", it.substringBefore('T')) }
+                ?.let { FilaDato("Actualizado", formatearFechaIso(it)) }
             }
 
             Spacer(Modifier.height(Espacio.xl))
-            if (qty > 0) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Stepper(cantidad = qty, onCantidad = vm::setQuantity)
-                    Text(
-                        " en el carrito",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                Button(onClick = { vm.setQuantity(1) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Agregar al carrito")
+            // Dos árboles distintos ocupan la misma región: botón si todavía no
+            // está en el carrito, stepper si ya está. El Crossfade evita el salto
+            // seco; los cambios de cantidad no animan porque el `targetState` no
+            // cambia, solo se recompone el contenido con `qty`.
+            Crossfade(
+                targetState = qty > 0,
+                animationSpec = tween(150),
+                label = "detalle-accion",
+            ) { enCarrito ->
+                if (enCarrito) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Stepper(cantidad = qty, onCantidad = vm::setQuantity)
+                        Text(
+                            " en el carrito",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    Button(onClick = { vm.setQuantity(1) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Agregar al carrito")
+                    }
                 }
             }
         }

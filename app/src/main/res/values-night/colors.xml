@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- FondoOscuro de Paleta.kt: el mismo que pinta Compose tras el primer frame. -->
+    <color name="cecosesola_background">#211A17</color>
+</resources>

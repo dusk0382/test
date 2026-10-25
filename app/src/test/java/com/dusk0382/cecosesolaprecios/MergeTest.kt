@@ -59,6 +59,51 @@ class MergeTest {
     }
 
     @Test
+    fun `una fila solo-API recalcula precioBs al recibir una tasa`() {
+        val soloApi = ProductEntity(
+            localId = 11,
+            repoId = null,
+            apiId = "88",
+            nombre = "Gelatina Sonrisa Cereza",
+            nombreNormalizado = "gelatina sonrisa cereza",
+            precioBs = 0.0,
+            fuente = "api",
+        )
+        val filas = MergeEngine.filasConEnriquecimiento(
+            listOf(enq("88", "Gelatina Sonrisa Cereza", cec = 1.5)),
+            listOf(soloApi),
+            tasaVedPorCec = 800.0,
+        )
+        assertEquals(1, filas.size)
+        val f = filas[0]
+        assertEquals(11L, f.localId)
+        assertEquals("api", f.fuente)
+        // Sin repoId no hay precio de mirror: se deriva de precioCec * tasa.
+        assertEquals(1.5 * 800.0, f.precioBs, 0.001)
+    }
+
+    @Test
+    fun `una fila solo-API no conserva un precioBs viejo si la tasa cambia`() {
+        val soloApi = ProductEntity(
+            localId = 12,
+            repoId = null,
+            apiId = "89",
+            nombre = "Gelatina Sonrisa Cereza",
+            nombreNormalizado = "gelatina sonrisa cereza",
+            precioBs = 1234.0,
+            fuente = "api",
+        )
+        val filas = MergeEngine.filasConEnriquecimiento(
+            listOf(enq("89", "Gelatina Sonrisa Cereza", cec = 2.0)),
+            listOf(soloApi),
+            tasaVedPorCec = 900.0,
+        )
+        assertEquals(1, filas.size)
+        assertEquals(12L, filas[0].localId)
+        assertEquals(2.0 * 900.0, filas[0].precioBs, 0.001)
+    }
+
+    @Test
     fun `merge del mirror no destruye filas enriquecidas`() {
         val enriquecida = ProductEntity(
             localId = 3,

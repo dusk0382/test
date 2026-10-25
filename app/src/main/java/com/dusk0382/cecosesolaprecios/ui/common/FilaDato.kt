@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,7 +40,10 @@ fun FilaDato(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = Espacio.xs),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = Espacio.xs)
+            .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.Top,
     ) {
         Text(
@@ -70,7 +74,12 @@ fun FilaDatoBloque(
     valor: String,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxWidth().padding(vertical = Espacio.xs)) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .padding(vertical = Espacio.xs)
+            .semantics(mergeDescendants = true) {},
+    ) {
         Text(
             etiqueta,
             style = MaterialTheme.typography.bodyMedium,

@@ -130,8 +130,10 @@ private fun AppNav(mainVm: MainViewModel) {
             // correcto); el slide sigue la convención de M3 para el bottom bar.
             AnimatedVisibility(
                 visible = barraVisible,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it },
+                // 150 ms, el mismo tiempo del fade del NavHost: la barra no
+                // sobrevive a la transición de pantalla ni llega tarde.
+                enter = fadeIn(tween(150)) + slideInVertically(animationSpec = tween(150)) { it },
+                exit = fadeOut(tween(150)) + slideOutVertically(animationSpec = tween(150)) { it },
             ) {
                 NavigationBar {
                     destinos.forEach { d ->
@@ -160,10 +162,15 @@ private fun AppNav(mainVm: MainViewModel) {
                                         // explícito. Se pide la de nivel superior.
                                         androidx.compose.animation.AnimatedVisibility(
                                             visible = d == Dest.Carrito && cartCount > 0,
-                                            enter = fadeIn(),
-                                            exit = fadeOut(),
+                                            enter = fadeIn(tween(150)),
+                                            exit = fadeOut(tween(150)),
                                         ) {
-                                            Badge { Text("$cartCount") }
+                                            // Un conteo no es un error: el Badge
+                                            // por defecto usa `error` y metía un
+                                            // segundo acento en la barra.
+                                            Badge(containerColor = MaterialTheme.colorScheme.primary) {
+                                                Text("$cartCount")
+                                            }
                                         }
                                     },
                                 ) {
@@ -197,8 +204,8 @@ private fun AppNav(mainVm: MainViewModel) {
                     CatalogScreen(
                         vm = catalogVm,
                         onOpenDetail = { id -> navController.navigate(Routes.detalle(id)) },
-                        // `launchSingleTop`: el FAB sigue siendo tocable durante
-                        // los 150ms de la transición de salida, y un doble toque
+                        // `launchSingleTop`: el botón de escanear sigue siendo
+                        // tocable durante los 150ms de la transición de salida, y un doble toque
                         // empujaba DOS entradas de ESCANER. La segunda al hacer
                         // `unbindAll()` (que es global al proceso) le desataba la
                         // cámara a la primera, y como la primera ya tenía su

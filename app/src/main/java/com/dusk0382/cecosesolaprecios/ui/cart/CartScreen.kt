@@ -29,6 +29,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -39,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,9 +69,12 @@ import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import com.dusk0382.cecosesolaprecios.ui.common.PriceText
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -75,13 +83,23 @@ class CartViewModel @Inject constructor(
     private val repo: ProductRepository,
 ) : ViewModel() {
 
-    private val lineasFlow = repo.cartFlow()
+    private val _cargado = MutableStateFlow(false)
 
-    val lineas: StateFlow<List<CartLine>> = lineasFlow
+    /** True desde la primera emisión de Room: la pantalla no muestra vacío antes. */
+    val cargado: StateFlow<Boolean> = _cargado.asStateFlow()
+
+    // Una sola colección del flow de Room. Antes `lineas`, `totalBs` y `totalCec`
+    // hacían tres `stateIn` sobre el flow frío y disparaban tres consultas a
+    // `cart_items` por cada cambio. Los totales se derivan del StateFlow ya
+    // compartido: el map corre en memoria y Room se consulta una vez.
+    private val lineasState = repo.cartFlow()
+        .onEach { _cargado.value = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val lineas: StateFlow<List<CartLine>> = lineasState
+
     /** Total en Bs. Siempre disponible. */
-    val totalBs: StateFlow<Double> = lineasFlow
+    val totalBs: StateFlow<Double> = lineasState
         .map { ls -> ls.sumOf { it.precioBs * it.quantity } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
@@ -90,7 +108,7 @@ class CartViewModel @Inject constructor(
      * solidario**: sumar solo los que sí lo tienen daría un total menor al real y
      * el usuario lo descubriría en la caja. En ese caso se muestra Bs.
      */
-    val totalCec: StateFlow<Double?> = lineasFlow
+    val totalCec: StateFlow<Double?> = lineasState
         .map { ls ->
             when {
                 ls.isEmpty() -> null
@@ -100,8 +118,8 @@ class CartViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Para el badge del NavigationBar. */
-    val count: StateFlow<Int> = repo.cartCountFlow()
+    /** Para el badge del NavigationBar: unidades, no líneas. */
+    val count: StateFlow<Int> = repo.cartUnitsCountFlow()
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     fun setQuantity(productId: Long, qty: Int) =
@@ -116,22 +134,52 @@ class CartViewModel @Inject constructor(
 @Composable
 fun CartScreen(vm: CartViewModel = hiltViewModel()) {
     val lineas by vm.lineas.collectAsStateWithLifecycle()
+    val cargado by vm.cargado.collectAsStateWithLifecycle()
     val totalBs by vm.totalBs.collectAsStateWithLifecycle()
     val totalCec by vm.totalCec.collectAsStateWithLifecycle()
     val usd = LocalUsdPrecio.current
     val context = LocalContext.current
     var confirmarVaciar by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // El total sigue la moneda del toggle solo si TODOS los ítems tienen ese precio.
     val mostrarTotalUsd = usd && totalCec != null
-    val totalTexto = if (mostrarTotalUsd) "USD ${formatBs(totalCec!!)}" else "Bs ${formatBs(totalBs)}"
+
+    // Quitar es reversible mientras el snackbar siga abierto: la línea vuelve
+    // con la cantidad exacta que tenía. Si se cierra sin tocar "Deshacer", no
+    // se restaura nada.
+    fun quitarConUndo(linea: CartLine) {
+        vm.quitar(linea.productId)
+        scope.launch {
+            // Si otro quita ya tenía su snackbar abierto, se cierra: el undo que
+            // importa es el de la última acción, no una cola de 10 s por línea.
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = "«${formatearNombreProducto(linea.nombre)}» quitado",
+                actionLabel = "Deshacer",
+                withDismissAction = false,
+                // Con actionLabel, Material3 usa Indefinite por defecto: el
+                // snackbar no se iba nunca y los borrados se encolaban. 10 s
+                // alcanzan para deshacer sin bloquear el siguiente.
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                vm.setQuantity(linea.productId, linea.quantity)
+            }
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { insets ->
         Column(Modifier.fillMaxSize().padding(insets)) {
-            if (lineas.isEmpty()) {
-                Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+            if (!cargado) {
+                // Room todavía no respondió: un hueco honesto, no un vacío falso.
+                Box(Modifier.fillMaxWidth().weight(1f))
+            } else if (lineas.isEmpty()) {
+                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                     Text(
                         "El carrito está vacío.\nAgrega productos desde la lista.",
                         style = MaterialTheme.typography.bodyLarge,
@@ -145,11 +193,17 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
                     verticalArrangement = Arrangement.spacedBy(Espacio.s),
                 ) {
                     items(lineas, key = { it.productId }) { linea ->
+                        // Sin `remember(productId)`: las lambdas deben capturar la
+                        // línea actual, no la de la primera composición, porque el
+                        // undo restaura la cantidad vigente al momento de quitar.
                         CartRow(
                             linea = linea,
                             usd = usd,
-                            onQty = { vm.setQuantity(linea.productId, it) },
-                            onQuitar = { vm.quitar(linea.productId) },
+                            onQty = { q ->
+                                if (q <= 0) quitarConUndo(linea)
+                                else vm.setQuantity(linea.productId, q)
+                            },
+                            onQuitar = { quitarConUndo(linea) },
                         )
                     }
                 }
@@ -233,6 +287,14 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
             }
         },
     )
+    // El estado del swipe es saveable y la fila deshecha vuelve con la misma
+    // key: si el gesto quedó guardado como descartado, se asienta para que la
+    // línea reaparezca entera en vez de fuera de pantalla.
+    LaunchedEffect(Unit) {
+        if (!descartada && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            dismissState.reset()
+        }
+    }
     if (descartada) {
         LaunchedEffect(linea.productId) {
             onQuitar()
@@ -306,20 +368,23 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
  * línea, así el mensaje nunca mezcla monedas bajo un solo "Total".
  */
 private fun compartirCarrito(context: Context, lineas: List<CartLine>, usd: Boolean) {
+    // Una sola moneda en todo el mensaje: USD solo si todos los ítems lo tienen.
+    val usarUsd = usd && lineas.isNotEmpty() && lineas.all { it.precioCec != null }
     val sb = StringBuilder()
     sb.append("Mi carrito — precios Cecosesola\n\n")
     lineas.forEach { l ->
-        val (precio, moneda) = l.precioMostrado(usd)
+        val (precio, moneda) = l.precioMostrado(usarUsd)
         sb.append("• ${formatearNombreProducto(l.nombre)} ×${l.quantity} = $moneda ${formatBs(precio * l.quantity)}\n")
     }
-    val totalCec = if (usd && lineas.all { it.precioCec != null }) {
-        lineas.sumOf { it.precioCec!! * it.quantity }
+    val totalTexto = if (usarUsd) {
+        "USD ${formatBs(lineas.sumOf { it.precioCec!! * it.quantity })}"
     } else {
-        null
+        "Bs ${formatBs(lineas.sumOf { it.precioBs * it.quantity })}"
     }
-    val totalTexto = if (totalCec != null) "USD ${formatBs(totalCec)}"
-    else "Bs ${formatBs(lineas.sumOf { it.precioBs * it.quantity })}"
     sb.append("\nTotal: $totalTexto")
+    if (usd && !usarUsd) {
+        sb.append("\n(Algunos productos no tienen precio solidario; se muestran en bolívares.)")
+    }
 
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"

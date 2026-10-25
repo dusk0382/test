@@ -15,10 +15,13 @@
   **cuánto cuesta algo**. Todo lo demás es secundario.
 - **Hardware**: MediaTek Helio G25, 2–3 GB de RAM, panel LCD de gama baja, sol
   fuerte encima. Contraste y legibilidad ganan; adornos pierden.
-- **Datos sucios**: 518–527 productos de dos fuentes. Nombres en MAYÚSCULAS
-  mezclados con minúsculas, marcas sin tipo de producto ("Rikesa", "Mega miel"),
-  tags con basura operativa. La UI **no inventa** lo que los datos no dicen:
-  oculta el campo vacío o inútil en vez de mostrarlo.
+- **Datos sucios y crecientes**: el catálogo es la unión de dos fuentes (mirror +
+  API oficial) y crece con ellas: al 2026-10-24 el mirror trae 542 productos y la
+  API 557, y el merge simulado da ~590 filas porque también se muestran las filas
+  solo-API. No hay un total fijo de 518/527. Nombres en MAYÚSCULAS mezclados con
+  minúsculas, marcas sin tipo de producto ("Rikesa", "Mega miel"), tags con basura
+  operativa. La UI **no inventa** lo que los datos no dicen: oculta el campo vacío
+  o inútil en vez de mostrarlo.
 
 ## 2. Dirección visual: "tablero de precios"
 
@@ -47,7 +50,8 @@ Estas son las que ya cometimos. Ninguna vuelve sin justificación escrita aquí:
 6. **Sin gradientes, glows, sombras de color, glassmorphism** ni decoración sin función.
 7. **Sin "todo redondeado"**: lo full-round se reserva a lo interactivo (buscador,
    chips, botones); contenedores de imagen y superficies usan radios medios.
-8. **Sin animaciones de entrada de listas** ni crossfade de imágenes (518 ítems en un A53).
+8. **Sin animaciones de entrada de listas** ni crossfade de imágenes (cientos de
+   ítems en un A53).
 9. **Sin mostrar dato inútil**: `presentacion = "item"`, `marca == categoria`, campos
    vacíos no se pintan.
 10. **Sin roles de color sin definir**. El esquema anterior declaraba 9 roles: todo
@@ -124,15 +128,18 @@ Reglas del primitivo:
   rechaza. Hasta migrar de AGP, la expresividad tipográfica se construye con escala y
   peso propios, no con la API de M3E.
 - **Espaciado**: base 4 dp. Gutters de pantalla 16, entre tarjetas 12, dentro de
-  tarjeta 8, entre secciones 24. Un `object Spacing` es el único lugar donde se
+  tarjeta 8, entre secciones 24. Un `object Espacio` es el único lugar donde se
   escriben números de espaciado.
 - **Formas**: `extraSmall 8`, `small 12`, `medium 16`, `large 20`, `extraLarge 28`.
-  Full-round solo para interactivos (buscador, chips, FAB).
-- **Movimiento** (funcional, no decorativo): 150 ms para cambios de estado;
-  spring solo en el stepper del carrito y el toggle de favorito. Sin animaciones
-  de entrada de listas. El indicador de la barra de navegación sí puede animar.
+  Full-round solo para interactivos (buscador, chips, botones).
+- **Movimiento** (funcional, no decorativo): 150 ms para cambios de estado (barra
+  inferior, badge del carrito y transiciones del `NavHost`); spring solo en el
+  stepper del carrito, vía `animateContentSize`. El favorito no anima: solo cambia
+  el icono. Sin animaciones de entrada de listas. El indicador de la barra de
+  navegación sí puede animar.
 - **Color** (medido, ver `Paleta.kt` y `TemaContrasteTest`):
-  - `primary` = naranja de marca `#FD4902`, **sólo relleno** (botones, FAB).
+  - `primary` = naranja de marca `#FD4902`, **sólo relleno** (botones, controles de
+    acción).
   - `onPrimary` = tinta oscura `#2A1200` (5.17:1), nunca blanco (3.43:1 ✗).
   - Acento de **precio** = `#B93300` en claro (5.66:1) y `#FFB59B` en oscuro
     (10.07:1). No se usa `primary` como texto: como relleno y como texto tienen
@@ -190,6 +197,9 @@ El diseño se verifica con cosas que fallan en CI, no con opiniones:
      es aarch64), así que cada error de import cuesta un ciclo entero de CI.
 5. **Conteo de tells** — al cerrar un rediseño se revisa la lista de la §3 y se
    anota cuántos quedan. Cuatro o más = no se entrega.
+6. **`ScrollBusquedaTest`** — la política de scroll al empezar, borrar o cambiar
+   la búsqueda: borrar una letra no mueve la grilla, limpiar vuelve a la posición
+   previa, y una búsqueda restaurada no la pisa.
 
 Las skills de `.claude/skills/` (`ceco-tablero-precios`, `ceco-precios-datos`,
 `ceco-puertas`) llevan estas mismas reglas en forma ejecutable, con el `file:line`
@@ -197,9 +207,19 @@ de cada una. Este documento dice **por qué**; las skills dicen **dónde**.
 
 ## 7. Estructura de pantallas
 
-- **Catálogo**: buscador (con limpiar) + icono de filtros con badge + FAB de
-  escáner. Sin filas de chips de categoría. Los filtros activos se muestran como
+- **Catálogo**: buscador (con limpiar) + icono de filtros con badge + icono de
+  escáner en la cabecera (no un FAB: flotando tapaba el `+` de la tarjeta
+  derecha). Sin filas de chips de categoría. Los filtros activos se muestran como
   chips descartables **solo mientras existan**.
+  - **Scroll al buscar**: al empezar una búsqueda la grilla va al principio y
+    guarda la posición previa; al borrar la búsqueda vuelve a esa posición.
+    Borrar letra por letra no salta a la posición de cada prefijo. La
+    restauración espera a que la lista mostrada sea la del estado actual
+    (`resultados.clave`), no la anterior.
+  - **Sin resultados**: el mensaje usa la consulta **asentada** (la que produjo
+    la lista) y dice "Buscando…" mientras el debounce no llegó. Un catálogo con
+    datos no muestra "Cargando precios…": una lista vacía es un resultado, no
+    una carga.
 - **Filtros** (patrón de la investigación: Baymard documenta que poner el conteo por
   opción es la mejora de mayor impacto de una UI de filtros, y que forzar selección
   única genera abandono):
@@ -213,6 +233,8 @@ de cada una. Este documento dice **por qué**; las skills dicen **dónde**.
     "Limpieza y aseo" + "Despensa" a la vez es una necesidad real, no un extra.
     Sin tope: los 10 rubros se pueden elegir a la vez y el filtro los aplica a
     todos.
+  - El conteo usa la **misma condición que la grilla**, incluido el barcode
+    exacto: si buscar un código muestra un producto, su rubro también cuenta.
   - Orden dentro de la misma hoja, y "Limpiar todo" visible.
   - Los filtros aplicados se muestran como chips descartables **pegados arriba** de la
     lista mientras existan, y el estado sobrevive al volver del detalle.
@@ -232,7 +254,12 @@ de cada una. Este documento dice **por qué**; las skills dicen **dónde**.
 - **Detalle**: nombre, precio grande, precio solidario en USD si existe, y **solo los
   datos reales** (se ocultan presentación vacía, marca redundante). Acción fija
   abajo: stepper si ya está en el carrito, botón si no. Sin imagen gigante vacía.
-- **Barra inferior**: `ShortNavigationBar` en Catálogo, Favoritos y Carrito.
+- **Ajustes**: frescura de las dos fuentes, tasa, ferias y total de productos.
+  Avisa si el precio solidario tiene más de 12 h y ofrece reconstruir el
+  enriquecimiento (borra el CEC y lo vuelve a bajar; favoritos y carrito se
+  conservan). El toggle se llama “Mostrar precio solidario (USD)”, no “precios en
+  USD”: no es una conversión.
+- **Barra inferior**: `NavigationBar` en Catálogo, Favoritos y Carrito.
   **Oculta** en Detalle, Escáner y Ajustes (tareas de pantalla completa): la
   barra solo existe en las tres rutas de `destinos` (`MainActivity.kt`).
 
@@ -248,17 +275,18 @@ se hicieron, porque volver a leerlos evita reintroducirlos:
    `ui/common` (lo usan catálogo y favoritos). *Pendiente*: `PriceText` ya
    acepta `Modifier` ✓, pero `EstadoVacio` y `HojaFiltros` siguen siendo privados
    de su pantalla.
-2. **compose-performance** ✅ — el campo de búsqueda es dueño de su estado y empuja
-   al VM con debounce; el patrón `MutableStateFlow.also { launch {} }` ya no está;
+2. **compose-performance** ✅ — el texto de búsqueda vive en la pantalla y el VM
+   recibe cada tecla; un solo debounce en el VM alimenta grilla y conteos; el
+   patrón `MutableStateFlow.also { launch {} }` ya no está;
    `LocalUsdPrecio` pasó de `staticCompositionLocalOf` a `compositionLocalOf`
    (con el `static`, cambiar la moneda recomponía **toda** la app); `Regex`
    compiladas a nivel de archivo en vez de por llamada y por tarjeta; el
-   formateo del precio va en `remember`; `sincronizando`/`yaRefrescado` se
-   exponen como `StateFlow` de solo lectura.
+   formateo del precio va en `remember`; `sincronizando` se expone como
+   `StateFlow` de solo lectura.
 3. **compose-animations** ✅ — `animateContentSize` en el stepper, `Crossfade`
-   para vacío↔resultados, `AnimatedVisibility` en el FAB, en la barra inferior y
-   en el badge del carrito; `NavHost` con `fadeIn/fadeOut` de 150 ms en las cuatro
-   transiciones (`MainActivity.kt`). Sin pendientes.
+   para vacío↔resultados y botón↔stepper, `AnimatedVisibility` en el icono de
+   limpiar búsqueda, en la barra inferior y en el badge del carrito; `NavHost` con
+   `fadeIn/fadeOut` de 150 ms en las cuatro transiciones (`MainActivity.kt`).
 4. **styles** (Google) ✅ en lo aplicable — la API `Styles` requiere Compose
    1.12-alpha, bloqueada por AGP 9.1: no aplica. Los 7 radios sueltos quedaron en
    `MaterialTheme.shapes.*`, y ahora `ui_lint.sh` falla si vuelve a aparecer uno.
@@ -279,10 +307,21 @@ se hicieron, porque volver a leerlos evita reintroducirlos:
   tests instrumentados. Lo único que la protege es el comentario.
 - **Sin tests instrumentados**: nada de UI, nada de Room real, nada de escáner.
   El smoke test de CI *abre* la app; no la usa.
-- **Las imágenes de la API oficial llegan por `http://`** al mismo host que sirve
-  el GraphQL, con la excepción de cleartext en `network_security_config.xml`. Un
-  atacante en el camino puede inyectar imágenes y el payload de precios.
-- **`ProductEntity.updatedAt` se recorta con `substringBefore('T')`**: funciona
-  para el ISO-8601 del mirror, no verificado para el de la API oficial.
+- **Las imágenes se piden por https**: `domain/Urls.kt` sube el esquema a https
+  antes de guardar la URL y `network_security_config.xml` prohíbe cleartext
+  (`cleartextTrafficPermitted="false"`). Los hosts de Cecosesola responden por
+  https (los `http://` solo redirigen), así que el cambio no rompe nada. Si un
+  host externo no soporta https, su imagen no carga: es preferible a permitir
+  cleartext para todos.
+- **`ProductEntity.updatedAt` se recorta con `substringBefore('T')`**: el
+  ISO-8601 de la API está verificado en el fixture
+  (`2026-09-12T21:24:27.906Z`), así que el corte funciona; pero el detalle muestra
+  `YYYY-MM-DD` mientras Ajustes usa `dd/MM/yyyy a las HH:mm`. Consistencia
+  pendiente, no dato roto.
+- **El orden por precio y la moneda visible**: la consulta ordena por `precioBs`.
+  Cuando el CEC está fresco, el mirror y la API son proporcionales (el scraper
+  deriva los Bs del CEC con la tasa), así que el orden coincide con las cifras
+  USD. Si el enriquecimiento está viejo, las cifras y el orden pueden no
+  coincidir; el problema real es la frescura, no la consulta.
 - **No hay reconciliación**: un producto que desaparece de la API oficial sigue
   ocupando su fila. Es el precio de no borrar, y se acepta a propósito.

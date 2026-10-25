@@ -28,7 +28,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun httpClients(json: Json): HttpClients = HttpClients(json)
+    fun httpClients(@ApplicationContext context: Context, json: Json): HttpClients =
+        HttpClients(context, json)
 
     @Provides
     @Singleton
@@ -44,6 +45,9 @@ object AppModule {
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
             // v1→v2: columna `clase` (rubro derivado). Una linea de SQL preserva
             // favoritos y carrito; el valor default se recalcula al sincronizar.
+            // Sin fallbackToDestructiveMigration(): favoritos y carrito son datos
+            // del usuario. Sin migración, Room falla al abrir; es preferible a
+            // perderlos en silencio.
             .addMigrations(*AppDatabase.MIGRATIONS)
             .build()
 }

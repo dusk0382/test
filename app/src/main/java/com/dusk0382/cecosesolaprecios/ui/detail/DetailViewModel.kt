@@ -7,8 +7,10 @@ import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -50,6 +52,21 @@ class DetailViewModel @Inject constructor(
     val cantidadEnCarrito: StateFlow<Int> = repo.cartQuantityFlow(id)
         .map { it ?: 0 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    private val _ultimaActualizacionUsd = MutableStateFlow<Long?>(null)
+
+    /**
+     * Epoch millis del último enriquecimiento de la API, o null si la app nunca
+     * sincronizó el precio solidario. Se lee una sola vez al abrir la ficha: la
+     * antigüedad no cambia mientras se mira el producto.
+     */
+    val ultimaActualizacionUsd: StateFlow<Long?> = _ultimaActualizacionUsd.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _ultimaActualizacionUsd.value = repo.ultimaFechaApi()?.toLongOrNull()
+        }
+    }
 
     fun toggleFavorite() = viewModelScope.launch { repo.toggleFavorite(id) }
 

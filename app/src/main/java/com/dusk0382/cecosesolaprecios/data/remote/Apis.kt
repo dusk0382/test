@@ -1,8 +1,10 @@
 package com.dusk0382.cecosesolaprecios.data.remote
 
+import android.content.Context
 import com.dusk0382.cecosesolaprecios.data.remote.dto.GraphqlEnvelope
 import com.dusk0382.cecosesolaprecios.data.remote.dto.PreciosRepoDto
 import kotlinx.serialization.json.Json
+import okhttp3.Cache
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -14,10 +16,14 @@ import java.util.concurrent.TimeUnit
  * dos endpoints no justifican la dependencia, y el plugin de serialization
  * genera los adapters (amigable con R8 — nada de reflexión).
  */
-class HttpClients(val jsonFormat: Json) {
+class HttpClients(context: Context, val jsonFormat: Json) {
+
+    /** Cache HTTP en disco, compartida por mirror e imágenes (Coil usa `fast`). */
+    private val cacheHttp = Cache(context.cacheDir.resolve("http_cache"), 32L * 1024 * 1024)
 
     /** Rápido (CDN de GitHub). */
     val fast = OkHttpClient.Builder()
+        .cache(cacheHttp)
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         // Sin callTimeout una conexión medio abierta se queda colgada hasta el

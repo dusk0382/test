@@ -137,7 +137,14 @@ object MergeEngine {
                 nombre = e.nombre,
                 nombreNormalizado = normalizarNombre(e.nombre),
                 clase = rubroDe(e.nombre, listOfNotNull(e.categoria)).name,
-                precioBs = vieja.precioBs, // el precio visual sigue siendo la fuente canónica del repo
+                // El precio en Bs del mirror es canónico solo si la fila tiene repoId.
+                // Una fila solo-API lo deriva de precioCec * tasa: si no, se queda en 0
+                // para siempre o con una tasa vieja cuando la tasa cambia.
+                precioBs = if (vieja.repoId == null) {
+                    e.precioCec * (tasaVedPorCec ?: 0.0)
+                } else {
+                    vieja.precioBs
+                },
                 apiId = e.apiId,
                 categoria = e.categoria,
                 marca = e.marca,

@@ -27,10 +27,3 @@ object Espacio {
     /** Área mínima táctil recomendada (accesibilidad táctil). */
     val toqueMinimo = 48.dp
 }
-
-/**
- * Reserva inferior de la grilla del catálogo: deja pasar el último renglón por
- * encima del FAB del escáner (56 dp + 16 de margen + 12 de gap). Sin esto, el
- * FAB tapa el control de carrito de la última tarjeta.
- */
-val reservaFab = 88.dp

@@ -30,12 +30,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Keystore desde secrets (opcional)
+        id: keystore
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          echo "signed=false" >> "$GITHUB_OUTPUT"
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
             printf '%s\n' \
@@ -43,6 +45,7 @@ jobs:
               "storePassword=$STORE_PASSWORD" \
               "keyAlias=$KEY_ALIAS" \
               "keyPassword=$KEY_PASSWORD" > keystore.properties
+            echo "signed=true" >> "$GITHUB_OUTPUT"
           fi
 
       # No se puede compilar Android en el entorno de desarrollo (el SDK es
@@ -75,7 +78,7 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      - name: Subir APK release firmado (artifact)
+      - name: Subir APK release (firmado si hay keystore) (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: apk-release
@@ -90,10 +93,11 @@ jobs:
           path: app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: warn
 
-      # Solo al empujar un tag v* (p.ej. git tag v1.0 && git push origin v1.0):
-      # los APKs quedan como assets descargables directos, sin zip ni artifact.
-      - name: Publicar Release (solo tags v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Solo al empujar un tag v* (p.ej. git tag v1.0 && git push origin v1.0) y
+      # solo si el keystore existe: sin firma no se publica un release.
+      # Los APKs quedan como assets descargables directos, sin zip ni artifact.
+      - name: Publicar Release (solo tags v* firmados)
+        if: startsWith(github.ref, 'refs/tags/v') && steps.keystore.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true

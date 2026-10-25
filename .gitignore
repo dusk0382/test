@@ -14,3 +14,9 @@ keystore.properties
 
 # Skills de agente instalados localmente (reinstalables con npx skills add)
 .agents/
+
+# Configuración local del agente (no se comparte)
+.qoder/
+
+# Transcripciones de sesiones del agente
+session-ses_*.md

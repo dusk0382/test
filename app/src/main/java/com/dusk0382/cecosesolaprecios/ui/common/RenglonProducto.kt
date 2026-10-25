@@ -23,13 +23,16 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.dusk0382.cecosesolaprecios.R
 import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
 import com.dusk0382.cecosesolaprecios.domain.formatearNombreProducto
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
@@ -51,6 +54,9 @@ fun RenglonProducto(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // El nombre se formatea una vez por nombre, no en cada recomposición de la
+    // tarjeta (que ocurre al cambiar cantidad o favorito).
+    val nombre = remember(producto.nombre) { formatearNombreProducto(producto.nombre) }
     Card(
         onClick = onClick,
         modifier = modifier,
@@ -65,6 +71,15 @@ fun RenglonProducto(
                     .aspectRatio(1f)
                     .background(PlatoImagen),
             ) {
+                // Respaldo decorativo: si el AsyncImage no pinta nada (sin URL o
+                // carga fallida), queda este ícono tenue sobre el plato claro.
+                // El AsyncImage va encima y lo tapa cuando la foto carga.
+                Icon(
+                    painter = painterResource(R.drawable.ic_image_placeholder),
+                    contentDescription = null,
+                    tint = TintaSobrePlato.copy(alpha = 0.25f),
+                    modifier = Modifier.align(Alignment.Center).size(40.dp),
+                )
                 AsyncImage(
                     model = producto.imagenUrl ?: producto.imagenGrandeUrl,
                     contentDescription = null, // el nombre ya está en texto: no duplicar para el lector
@@ -86,7 +101,7 @@ fun RenglonProducto(
                     contentAlignment = Alignment.BottomStart,
                 ) {
                     Text(
-                        text = formatearNombreProducto(producto.nombre),
+                        text = nombre,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,

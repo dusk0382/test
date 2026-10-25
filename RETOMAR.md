@@ -1,12 +1,11 @@
 # RETOMAR.md — App "Cecosesola Precios" (Android nativa Kotlin)
 
-> Documento de handoff completo. Escrito 2026-09-13. Léelo entero antes de tocar nada;
-> está ordenado de "qué es esto" a "qué falta exactamente".
->
-> **Vigencia (2026-10-23).** Esto es un **snapshot histórico**, no el estado actual:
-> el loop de build, los defectos y el plan de §5 cambiaron después. Lo que manda hoy
-> es `DESIGN.md` (decisiones), las skills `.claude/skills/ceco-*` (reglas ejecutables)
-> y el `git log` + la CI (hechos). Si algo de acá los contradice, les creés a ellos.
+> **BANNER — snapshot histórico del 13/09/2026.** Esto es un handoff viejo, no el
+> estado actual: las versiones de dependencias, los counts de productos y el
+> estado del remote/CI que aparecen abajo ya no valen. Lo que manda hoy es
+> `DESIGN.md` (decisiones), las skills `.claude/skills/ceco-*` (reglas
+> ejecutables) y el `git log` + la CI (hechos). Si algo de acá los contradice,
+> les creés a ellos.
 
 ## 1. Qué se está construyendo
 
@@ -177,7 +176,8 @@ Cosas del plan aún NO hechas:
 ```bash
 cd /root/frebufftesteos/Ceco
 git add -A && git commit -m "…"      # messages terminan con: Co-Authored-By: Claude Code <noreply@anthropic.com>
-# falta remote:  git remote add origin https://github.com/dusk0382/cecosesola-precios.git
+# remote ya existe y la CI compila desde 2026-09-26:
+#   origin = https://github.com/dusk0382/test.git
 # push: GIT_ASKPASS=/ruta/askpass.sh GIT_TERMINAL_PROMPT=0 git push origin main
 ```
 CI corre solo (`build.yml`). Ver resultados: `gh run list`/`gh run watch` si hay

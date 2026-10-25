@@ -12,10 +12,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CartItemEntity::class,
         MetaEntity::class,
     ],
-    // v2: `clase` en products (rubro derivado, columna filtrable). El fallback
-    // destructivo vive en AppModule: la BD es un cache re-sincronizable, nunca
-    // datos del usuario (favoritos/carrito sí sobreviven porque están en otras
-    // tablas — solo products se trunca y se repone del mirror en el primer sync).
+    // v2: `clase` en products (rubro derivado, columna filtrable).
+    // Sin fallback destructivo a propósito: `favorites` y `cart_items` son datos
+    // del usuario, no cache. Toda versión nueva exige una Migration en MIGRATIONS;
+    // si falta, Room falla al abrir en vez de borrar el carrito en silencio.
+    // `products` sí es cache, pero eso no justifica arriesgar las otras tablas.
     version = 2,
     exportSchema = false,
 )

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+        Variante noche del tema de arranque. @color/cecosesola_background resuelve
+        a #211A17 por values-night/colors.xml; el naranja de marca no cambia.
+    -->
+    <style name="Theme.CecosesolaPrecios" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/cecosesola_background</item>
+        <item name="android:statusBarColor">@color/cecosesola_background</item>
+        <item name="android:navigationBarColor">@color/cecosesola_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+        <item name="android:colorPrimary">@color/cecosesola_orange</item>
+    </style>
+</resources>

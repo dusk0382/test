@@ -11,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import com.dusk0382.cecosesolaprecios.R
@@ -44,7 +46,11 @@ fun DeltaBadge(
     val tint = if (subio) colores.sube else colores.baja
 
     Row(
-        modifier = modifier,
+        // Una sola frase para el lector: sin esto lee "+5%" como símbolos
+        // sueltos. El texto visual no cambia.
+        modifier = modifier.clearAndSetSemantics {
+            contentDescription = if (subio) "Subió $pct por ciento" else "Bajó $pct por ciento"
+        },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Espacio.minimo),
     ) {

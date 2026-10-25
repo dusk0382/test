@@ -14,6 +14,7 @@ import java.text.DecimalFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Formato venezolano fijo (1.365,50), sin mirar el locale del SO: en Android Go
@@ -39,6 +40,14 @@ private val fechaFormat = ThreadLocal.withInitial {
 private val fechaMirror = ThreadLocal.withInitial {
     SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale("es", "VE"))
 }
+/** El `updatedAt` de la API oficial llega en ISO-8601 UTC con milisegundos:
+ *  "2026-09-12T21:24:27.906Z". La `Z` del patrón es literal, no una zona, así
+ *  que el parser se fija a UTC a mano; la salida sigue usando la hora local. */
+private val fechaIso = ThreadLocal.withInitial {
+    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
+}
 
 fun formatBs(valor: Double): String = numberFormat.get()!!.format(valor)
 
@@ -63,6 +72,21 @@ fun formatFechaHora(millis: Long): String =
  */
 fun formatearFechaMirror(iso: String): String = try {
     fechaMirror.get()!!.parse(iso.trim())?.let { fechaFormat.get()!!.format(it) } ?: iso
+} catch (e: Exception) {
+    iso
+}
+
+/**
+ * `updatedAt` de la API → "12/09/2026 a las 21:24" en hora local, el mismo
+ * formato que Ajustes. Antes el detalle recortaba el ISO con
+ * `substringBefore('T')` y mostraba "2026-09-12" crudo: una tercera forma de
+ * fecha, solo en esa fila.
+ *
+ * Es un dato de terceros: si viene con otro formato se devuelve tal cual, sin
+ * romper la ficha por una fecha rara.
+ */
+fun formatearFechaIso(iso: String): String = try {
+    fechaIso.get()!!.parse(iso.trim())?.let { fechaFormat.get()!!.format(it) } ?: iso
 } catch (e: Exception) {
     iso
 }

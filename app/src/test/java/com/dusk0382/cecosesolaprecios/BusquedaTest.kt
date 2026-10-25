@@ -58,11 +58,23 @@ class BusquedaTest {
     }
 
     @Test
-    fun `un barcode de 8 o 13 digitos se reconoce`() {
+    fun `un barcode de 8 a 14 digitos se reconoce`() {
         // 13 dígitos: el EAN-13 real de Galleta Maria Puig en el fixture.
         assertEquals("7591082000307", barcodeDeConsulta("7591082000307"))
+        // 8 dígitos: EAN-8.
         assertEquals("12345670", barcodeDeConsulta("12345670"))
+        // 12 dígitos: UPC-A. El escáner ya lo aceptaba, pero escrito a mano caía
+        // en la rama de texto y no encontraba nada.
+        assertEquals("012345678905", barcodeDeConsulta("012345678905"))
+        // 14 dígitos: GTIN-14.
+        assertEquals("12345678901234", barcodeDeConsulta("12345678901234"))
+    }
+
+    @Test
+    fun `la consulta con espacios se trimea`() {
         assertEquals("7591082000307", barcodeDeConsulta("  7591082000307  "))
+        assertEquals("012345678905", barcodeDeConsulta(" 012345678905 "))
+        assertEquals("12345678901234", barcodeDeConsulta("\t12345678901234\n"))
     }
 
     @Test
@@ -75,6 +87,8 @@ class BusquedaTest {
         assertEquals("", barcodeDeConsulta(""))
         // 6 dígitos es ambiguo entre un código corto, un peso y una cantidad.
         assertEquals("", barcodeDeConsulta("123456"))
+        // 7 dígitos queda por debajo del rango mínimo de 8.
+        assertEquals("", barcodeDeConsulta("1234567"))
         // 13 dígitos pero con letras no es un barcode.
         assertEquals("", barcodeDeConsulta("75910820003AB"))
     }

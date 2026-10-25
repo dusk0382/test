@@ -64,15 +64,20 @@ interface ProductDao {
      * Se filtra por la búsqueda pero **no** por las clases ya seleccionadas: si
      * se filtrara, al elegir un rubro todos los demás contarían 0 y no habría
      * forma de cambiar de opinión.
+     *
+     * La condición es la misma que la de `searchFlow`, **incluido el barcode**:
+     * si buscar un código muestra un producto pero los rubros no lo cuentan, el
+     * selector de filtros miente sobre lo que hay en pantalla.
      */
     @Query(
         """
         SELECT clase, COUNT(*) AS total FROM products
-        WHERE (:query = '' OR nombreNormalizado LIKE '%' || :query || '%' ESCAPE '\')
+        WHERE (:query = '' OR nombreNormalizado LIKE '%' || :query || '%' ESCAPE '\'
+                      OR barcode = :barcodeExacto)
         GROUP BY clase ORDER BY COUNT(*) DESC
         """
     )
-    fun conteoPorClaseFlow(query: String): Flow<List<ClaseConteo>>
+    fun conteoPorClaseFlow(query: String, barcodeExacto: String): Flow<List<ClaseConteo>>
 
     @Query("SELECT * FROM products WHERE localId = :id")
     fun byIdFlow(id: Long): Flow<ProductEntity?>
@@ -88,6 +93,33 @@ interface ProductDao {
 
     @Query("SELECT * FROM products")
     suspend fun all(): List<ProductEntity>
+
+    /**
+     * Borra solo el enriquecimiento de la API oficial y conserva la identidad
+     * de la fila (`localId`, `repoId`, nombre, clase, precio Bs, imagen del
+     * repo), así favoritos y carrito siguen apuntando a los mismos productos.
+     * Sirve para reparar bases con mapeos viejos: el próximo enrich reasigna
+     * `apiId`/barcode/CEC por nombre o barcode en vez de quedar pegado a un
+     * match equivocado que ya está en la tabla.
+     */
+    @Query("""
+        UPDATE products SET
+          apiId = NULL,
+          barcode = NULL,
+          categoria = NULL,
+          marca = NULL,
+          presentacion = NULL,
+          imagenGrandeUrl = NULL,
+          precioCec = NULL,
+          precioAnteriorCec = NULL,
+          updatedAt = NULL,
+          fuente = CASE WHEN repoId IS NULL THEN 'api' ELSE 'repo' END
+    """)
+    suspend fun clearEnrichment()
+
+    /** Recalcula el Bs de las filas solo-API cuando cambia la tasa oficial. */
+    @Query("UPDATE products SET precioBs = COALESCE(precioCec, 0.0) * :tasa WHERE repoId IS NULL")
+    suspend fun updateApiOnlyBs(tasa: Double)
 
     @Upsert
     suspend fun upsertAll(items: List<ProductEntity>)
@@ -147,6 +179,10 @@ interface CartDao {
     @Query("SELECT COUNT(*) FROM cart_items")
     fun countFlow(): Flow<Int>
 
+    /** Unidades totales, no líneas: el badge del carrito suma `quantity`. */
+    @Query("SELECT COALESCE(SUM(quantity), 0) FROM cart_items")
+    fun unitsCountFlow(): Flow<Int>
+
     @Query("SELECT productId, quantity FROM cart_items")
     fun quantitiesFlow(): Flow<List<CartCantidad>>
 }
@@ -179,4 +215,7 @@ interface MetaDao {
 
     @Query("SELECT value FROM meta WHERE `key` = :key")
     suspend fun get(key: String): String?
+
+    @Query("SELECT value FROM meta WHERE `key` = :key")
+    fun valueFlow(key: String): Flow<String?>
 }

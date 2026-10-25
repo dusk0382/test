@@ -74,7 +74,7 @@ emulador), `r8-mapping` (para retrazar un stack de release) y los dos APKs.
 
 ## Los tests
 
-Siete archivos, JVM puro, sin instrumentación. Fixtures reales en
+Ocho archivos, JVM puro, sin instrumentación. Fixtures reales en
 `app/src/test/resources/fixtures/`.
 
 | test | qué protege |
@@ -86,6 +86,7 @@ Siete archivos, JVM puro, sin instrumentación. Fixtures reales en
 | `TemaContrasteTest` | WCAG AA en claro y oscuro, sin roles sin definir |
 | `BusquedaTest` | `escaparLike` y búsqueda exacta por código de barras |
 | `UrlsTest` | el paso de http a https solo en los hosts de Cecosesola |
+| `ScrollBusquedaTest` | empezar/borrar/cambiar búsqueda: la grilla no salta ni pierde el punto de partida |
 
 Correr: `./gradlew :app:testDebugUnitTest` (necesita red la primera vez; en CI
 corre siempre).

@@ -1,6 +1,7 @@
 package com.dusk0382.cecosesolaprecios.ui.common
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
 import com.dusk0382.cecosesolaprecios.data.local.CartLine
 import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
@@ -24,6 +25,7 @@ val LocalUsdPrecio = compositionLocalOf { false }
  * si no, siempre Bs — nunca se inventa una conversión.
  */
 @Composable
+@ReadOnlyComposable
 fun ProductEntity.precioMostrado(): Pair<Double, String> {
     val cecActivado = LocalUsdPrecio.current
     val cec = precioCec

@@ -157,7 +157,7 @@ toggle de favorito. El indicador de la barra de navegación puede animar.
 Nunca en fase de composición ni recomponiendo por frame: el Mali-G52 no lo
 paga. Cero animaciones de entrada de listas.
 
-## Buscador: los tres bugs que ya vivió ahí
+## Buscador: los cinco bugs que ya vivió ahí
 
 Anotados porque son el tipo de defecto que vuelve cuando nadie sabe por qué el
 código está como está:
@@ -167,12 +167,11 @@ código está como está:
    sobrevive a los cambios de contenido: al filtrar a pocos resultados el índice
    del ancla se mantiene, y al limpiar el campo la lista se re-expande con el
    usuario donde estaba antes de filtrar. Se ve como "se scrolleó solo".
-   El arreglo es `key(query, filtros, orden) { rememberLazyGridState() }`:
-   cambiar las claves descarta el `remember` y la grilla arranca en 0 por
-   construcción. **No** con `LaunchedEffect { scrollToItem(0) }`, que llama
-   `scrollToItem` sobre un estado que puede no estar montado (si la búsqueda no
-   deja resultados, la grilla no está compuesta) y depende de que el scroll
-   pendiente se aplique al re-adjuntarse.
+   Hoy la grilla recibe un `gridState` explícito y la política vive en
+   `decidirScrollBusqueda` (`ui/catalog/CatalogScroll.kt`); el destino se aplica
+   recién cuando `resultados.clave` es la del estado actual. **No** vuelvas al
+   `key(query, ...)` ni a un `scrollToItem(0)` a ciegas: el primero descarta el
+   estado y el segundo puede correr sin grilla montada.
 2. **El placeholder desalineado.** Un `Text` apilado en un `Box` junto al
    `BasicTextField` no se alinea con el texto si el campo tiene `padding` y el
    `Text` no, y al teclear la primera letra todo salta.
@@ -189,8 +188,25 @@ código está como está:
 3. **La acción de teclado que no hace nada.** `ImeAction.Search` sin su
    `KeyboardActions` deja una tecla visible que no ocurre para nada. Peor que no
    tenerla.
+4. **Borrar la búsqueda no volvía al punto de partida.** La posición previa
+   estaba en un `remember` con un mapa por consulta: al abrir una ficha la
+   pantalla se descompone y el mapa se recreaba vacío, así que limpiar la
+   búsqueda mandaba al principio. Y al borrar letra por letra se restauraba la
+   posición de cada prefijo de la pasada de escritura, con saltos que no
+   significaban nada.
+   Ahora `posicionAntesDeBuscar` es `rememberSaveable`; empezar una búsqueda
+   guarda el punto y va al principio, limpiar vuelve ahí, y cambiar de una
+   búsqueda a otra (teclear o borrar una letra) no mueve la grilla.
+   `ScrollBusquedaTest` fija las reglas. **No** vuelvas a un mapa de posiciones
+   por consulta.
+5. **Una búsqueda sin resultados decía "Cargando precios…".** El estado vacío
+   usaba `yaRefrescado`, que solo pasaba a `true` tras un pull-to-refresh manual:
+   en una sesión normal, buscar algo inexistente se quedaba en "Cargando…" para
+   siempre. La señal correcta es `total`: si hay datos, una lista vacía es un
+   resultado. Mientras el debounce no asentó, dice "Buscando…"; el mensaje usa la
+   consulta **asentada**, no la que se está tecleando.
 
-Y dos cosas más que no son bugs pero conviene no romper:
+Y tres cosas más que no son bugs pero conviene no romper:
 
 - `escaparLike` en la consulta: sin eso, escribir `%` en el buscador trae los 518
   productos. Un `%` es un carácter normal en un nombre ("QUESO 100%").
@@ -198,6 +214,9 @@ Y dos cosas más que no son bugs pero conviene no romper:
   exacto, no `LIKE`): la app escanea códigos y los guarda, así que buscar el
   código de lo que acabás de escanear tiene que encontrarlo. La lógica pura vive
   en `data/repository/Busqueda.kt` y está en `BusquedaTest`.
+- Los **conteos por rubro** usan la misma condición que la grilla, incluido el
+  barcode exacto. Si no, buscar un código mostraba el producto pero el selector
+  de filtros no lo contaba.
 
 ## Los cuatro bugs que mostraban los screenshots
 
@@ -242,6 +261,8 @@ Y dos cosas que son de jerarquía, no de función:
   reservado al precio (§5): con seis favoritos la fila de corazones brillaba más
   que los precios. Un favorito tampoco es un `error`. Va `TintaSobrePlato`, oscura
   en los dos temas porque pisa el plato de imagen, no la superficie.
+- Los badges de conteo (filtros y carrito) son relleno `primary`, no el `error`
+  por defecto de M3: un conteo no es un error y el rojo metía un segundo acento.
 
 ## Insets: la trampa del Scaffold anidado
 

@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <color name="cecosesola_orange">#FD4902</color>
 
+    <!--
+        Tema de arranque (sólo pre-primer-frame): replica el fondo real de Compose
+        para que no haya destello naranja/blanco antes de que enableEdgeToEdge() y
+        el SideEffect de Theme.kt tomen el control de las system bars.
+    -->
     <style name="Theme.CecosesolaPrecios" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">@color/cecosesola_orange</item>
+        <item name="android:windowBackground">@color/cecosesola_background</item>
+        <item name="android:statusBarColor">@color/cecosesola_background</item>
+        <item name="android:navigationBarColor">@color/cecosesola_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
         <item name="android:colorPrimary">@color/cecosesola_orange</item>
     </style>
 </resources>

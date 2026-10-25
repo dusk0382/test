@@ -60,7 +60,10 @@ class ProductRepository @Inject constructor(
      * está viendo, no el del catálogo entero.
      */
     fun conteoPorClaseFlow(query: String): Flow<List<ClaseConteo>> =
-        productDao.conteoPorClaseFlow(escaparLike(consultaDeBusqueda(query)))
+        productDao.conteoPorClaseFlow(
+            escaparLike(consultaDeBusqueda(query)),
+            barcodeDeConsulta(query),
+        )
 
     fun byIdFlow(id: Long): Flow<ProductEntity?> = productDao.byIdFlow(id)
     fun countFlow(): Flow<Int> = productDao.countFlow()
@@ -69,6 +72,10 @@ class ProductRepository @Inject constructor(
 
     suspend fun ultimaFechaRepo(): String? = metaDao.get(MetaKeys.REPO_DATE)
     suspend fun ultimaFechaApi(): String? = metaDao.get(MetaKeys.API_SYNC_AT)
+
+    /** Instante (epoch ms) del último enrich exitoso, reactivo a los cambios de meta. */
+    fun apiSyncAtFlow(): Flow<Long?> = metaDao.valueFlow(MetaKeys.API_SYNC_AT)
+        .map { it?.toLongOrNull() }
     suspend fun tasaOficial(): Double? = metaDao.get(MetaKeys.API_RATE_VED)?.toDoubleOrNull()
     suspend fun ferias(): List<String> = metaDao.get(MetaKeys.BRANCHES_JSON)
         ?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() } ?: emptyList()
@@ -91,6 +98,9 @@ class ProductRepository @Inject constructor(
     fun cartQuantityFlow(id: Long): Flow<Int?> = db.cartDao().quantityOfFlow(id)
 
     fun cartCountFlow(): Flow<Int> = db.cartDao().countFlow()
+
+    /** Unidades totales del carrito (suma de `quantity`, no de líneas). */
+    fun cartUnitsCountFlow(): Flow<Int> = db.cartDao().unitsCountFlow()
 
     /** Mapa productId → cantidad para pintar steppers en tarjetas sin query por ítem. */
     fun cartQuantitiesFlow(): Flow<Map<Long, Int>> = db.cartDao().quantitiesFlow()
@@ -118,6 +128,30 @@ class ProductRepository @Inject constructor(
             ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<EnrichSyncWorker>().build(),
         )
+    }
+
+    /**
+     * Borra el enriquecimiento de todas las filas y vuelve a encolarlo. Sirve
+     * para reparar una base instalada vieja con `apiId`/CEC mal asignados sin
+     * tocar filas, favoritos ni carrito (los productos base y sus precios en Bs
+     * quedan intactos).
+     *
+     * Se invalida también `API_VERSION`: `syncEnrich` salta la reescritura de
+     * productos cuando la versión no cambió, así que sin esto el enrich que se
+     * encola acá volvería en segundos sin reconstruir nada.
+     */
+    suspend fun resetEnrichment() = withContext(Dispatchers.IO) {
+        // clearEnrichment y la invalidación de la versión van juntas: si el
+        // proceso muere entre una y otra, la base queda sin CEC y con la versión
+        // vieja, y el próximo enrich se salta la reconstrucción.
+        db.withTransaction {
+            db.productDao().clearEnrichment()
+            metaDao.put(MetaEntity(MetaKeys.API_VERSION, ""))
+            // La fecha mostrada en Ajustes también deja de mentir: hasta que
+            // termine el worker no hay precio solidario válido.
+            metaDao.put(MetaEntity(MetaKeys.API_SYNC_AT, ""))
+        }
+        requestEnrich()
     }
 
     /**
@@ -158,13 +192,36 @@ class ProductRepository @Inject constructor(
             nuevas
         }
         Log.i(TAG, "syncBase: ${filas.size} filas desde el mirror (fecha ${dto.fechaActualizacion})")
+
+        // El mirror cambia ~3 veces/día pero el enrich programado es diario: sin
+        // esto el CEC podía quedar 16 h atrás de la lista base (capturas: base
+        // 19:45 con enriquecido de las 03:05). El umbral de 6 h evita encolar en
+        // cada refresh manual cuando hace poco que se enriqueció. Encolar no
+        // puede tumbar el sync base: si WorkManager falla, la base ya está bien.
+        if (enrichViejo(ENRICH_MAX_AGE_MS)) {
+            runCatching { requestEnrich() }
+                .onFailure { Log.w(TAG, "syncBase: no se pudo encolar el enrich: ${it.message}", it) }
+        }
         true
     }
 
+    /** true si nunca hubo un enrich exitoso o si pasó más de [maxAgeMillis]. */
+    private suspend fun enrichViejo(maxAgeMillis: Long): Boolean {
+        val ultimo = metaDao.get(MetaKeys.API_SYNC_AT)?.toLongOrNull() ?: return true
+        return System.currentTimeMillis() - ultimo > maxAgeMillis
+    }
+
     /**
-     * Enriquece con la API oficial (lento; fallar es normal). True si hubo cambios.
+     * Enriquece con la API oficial (lento; fallar es normal). True si hubo
+     * cambios de productos o de meta (tasa, ferias, versión).
      *
-     * `false` significa "no había nada que hacer" (misma versión, payload vacío).
+     * El payload se parsea SIEMPRE para sacar versión, tasa y ferias: el guard de
+     * versión solo evita reescribir las ~527 filas cuando el catálogo no cambió.
+     * Antes retornaba antes de tocar meta, así que un cambio de tasa sin cambio
+     * de versión no se aplicaba nunca y el toggle USD quedaba con precios
+     * solidarios viejos. `API_SYNC_AT` se sella en toda descarga exitosa (última
+     * verificación real) y no cuenta como "cambio" para el valor de retorno.
+     *
      * Un fallo de red o de parseo lanza y lo distingue: el worker reintenta solo
      * eso, en vez de reportar éxito ante un error de schema.
      */
@@ -180,32 +237,66 @@ class ProductRepository @Inject constructor(
 
         val version = payload.priceList?.model?.version
         val versionGuardada = metaDao.get(MetaKeys.API_VERSION)?.toIntOrNull()
-        if (version != null && version == versionGuardada) return@withContext false
-
         val tasa = MergeEngine.tasaVed(payload)
-        val enriquecidos = MergeEngine.enriquecidosDesdePayload(payload)
-        if (enriquecidos.isEmpty()) return@withContext false
+        val tasaGuardada = metaDao.get(MetaKeys.API_RATE_VED)?.toDoubleOrNull()
+        // Si el payload no trae la tasa, la última conocida sigue siendo mejor
+        // que 0: las filas solo-API derivan su precio en Bs de ella.
+        val tasaAplicar = tasa ?: tasaGuardada
+        val ferias = MergeEngine.nombresBranches(payload, json)
+        val feriasJson = json.encodeToString(ferias)
+        val hayBranches = payload.branches != null
+
+        // Valores previos (antes de escribir): el retorno distingue "actualicé
+        // algo" de "la misma foto otra vez".
+        val versionPrevia = metaDao.get(MetaKeys.API_VERSION)
+        val tasaPrevia = metaDao.get(MetaKeys.API_RATE_VED)
+        val feriasPrevias = metaDao.get(MetaKeys.BRANCHES_JSON)
+
+        // Misma versión: el catálogo no cambió y no se reescriben las filas, pero
+        // tasa, ferias y sello de contacto se guardan igual (ver KDoc).
+        val mismaVersion = version != null && version == versionGuardada
+        val aAplicar = if (mismaVersion) emptyList() else MergeEngine.enriquecidosDesdePayload(payload)
 
         db.withTransaction {
-            val filas = MergeEngine.filasConEnriquecimiento(enriquecidos, productDao.all(), tasa)
-            productDao.upsertAll(filas)
+            if (aAplicar.isNotEmpty()) {
+                val filas = MergeEngine.filasConEnriquecimiento(aAplicar, productDao.all(), tasaAplicar)
+                productDao.upsertAll(filas)
+            }
             if (version != null) metaDao.put(MetaEntity(MetaKeys.API_VERSION, version.toString()))
+            if (tasa != null) {
+                metaDao.put(MetaEntity(MetaKeys.API_RATE_VED, tasa.toString()))
+                // Una tasa nueva obliga a recalcular el Bs de las filas solo-API
+                // aunque la versión del catálogo no haya cambiado.
+                if (tasa.toString() != tasaPrevia) productDao.updateApiOnlyBs(tasa)
+            }
+            // Si el payload no trae branches, no se pisan las ferias conocidas.
+            if (hayBranches) metaDao.put(MetaEntity(MetaKeys.BRANCHES_JSON, feriasJson))
             metaDao.put(MetaEntity(MetaKeys.API_SYNC_AT, System.currentTimeMillis().toString()))
-            if (tasa != null) metaDao.put(MetaEntity(MetaKeys.API_RATE_VED, tasa.toString()))
-            metaDao.put(
-                MetaEntity(MetaKeys.BRANCHES_JSON, json.encodeToString(MergeEngine.nombresBranches(payload, json)))
-            )
-            filas
         }
+
+        val huboCambios = aAplicar.isNotEmpty() ||
+            (version != null && version.toString() != versionPrevia) ||
+            (tasa != null && tasa.toString() != tasaPrevia) ||
+            (hayBranches && feriasJson != feriasPrevias)
+
         Log.i(
             TAG,
-            "syncEnrich: ${enriquecidos.size} productos enriquecidos, version $version, " +
-                "Bs por USD ${tasa ?: "sin tasa (los precios en Bs de filas solo-API quedan en 0)"}",
+            if (aAplicar.isEmpty()) {
+                "syncEnrich: sin cambios de catálogo (version $version); " +
+                    "tasa ${tasaAplicar ?: "sin dato"}, ${ferias.size} ferias"
+            } else {
+                "syncEnrich: ${aAplicar.size} productos enriquecidos, version $version, " +
+                    "Bs por USD ${tasaAplicar ?: "sin tasa (los precios en Bs de filas solo-API quedan en 0)"}"
+            },
         )
-        true
+        huboCambios
     }
 
     private companion object {
         const val TAG = "CecoSync"
+
+        /** Mismo ritmo que el mirror: 6 h. Evita encolar en cada refresh manual
+         *  cuando hace poco que se enriqueció. */
+        const val ENRICH_MAX_AGE_MS = 6L * 60 * 60 * 1000
     }
 }

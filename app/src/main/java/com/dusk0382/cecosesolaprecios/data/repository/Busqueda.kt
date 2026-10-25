@@ -30,22 +30,27 @@ internal fun escaparLike(texto: String): String = texto
     .replace("_", "\\_")
 
 /**
- * Si lo que el usuario escribió es un código de barras (EAN-8 de 8 dígitos o
- * EAN-13 de 13, que son los que trae la API oficial), se devuelve tal cual para
+ * Si lo que el usuario escribió es un código de barras, se devuelve tal cual para
  * compararlo exacto contra la columna. Cualquier otra entrada devuelve "" para
  * que la cláusula `barcode = ''` no empareje nada.
+ *
+ * Se aceptan de 8 a 14 dígitos, el mismo rango que el escáner: EAN-8, UPC-A (12),
+ * EAN-13 y GTIN-14. Antes solo se reconocían 8 y 13, así que un UPC-A escaneado
+ * funcionaba pero escrito a mano caía en la rama de texto y no encontraba nada.
  *
  * Por qué exacta y no un `LIKE`: un barcode es un identificador, no un texto. Una
  * coincidencia parcial sobre una columna sin índice recorre todos los renglones
  * y además puede traer productos distintos, que es peor que no traer.
  *
- * Por qué se limita a 8 y 13 dígitos: "2026" también son 4 dígitos y es un año;
- * un número de precio o un peso en gramos también son dígitos. Sin este filtro,
- * escribir un precio en el buscador devolvería productos por coincidencia de
- * barcode.
+ * Por qué no cualquier cantidad de dígitos: "2026" son 4 dígitos y es un año; un
+ * precio, un peso en gramos o una cantidad también son 4 o 6 dígitos. Sin este
+ * filtro, escribir un precio en el buscador devolvería productos por
+ * coincidencia de barcode. Tampoco se aceptan letras: el escáner descarta lo que
+ * no sea dígito porque el código ya viene leído, pero acá no se corrige lo que
+ * el usuario escribió.
  */
 internal fun barcodeDeConsulta(query: String): String {
     val cruda = query.trim()
-    val esBarcode = (cruda.length == 8 || cruda.length == 13) && cruda.all { it.isDigit() }
+    val esBarcode = cruda.length in 8..14 && cruda.all { it.isDigit() }
     return if (esBarcode) cruda else ""
 }

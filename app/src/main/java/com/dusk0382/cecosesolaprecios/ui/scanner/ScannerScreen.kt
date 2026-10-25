@@ -25,6 +25,7 @@ import android.util.Log
 import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -33,7 +34,9 @@ import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -51,10 +54,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.dusk0382.cecosesolaprecios.R
+import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.findViewTreeLifecycleOwner
@@ -209,13 +216,51 @@ fun ScannerScreen(
     }
 
     var estadoCamera by remember { mutableStateOf<EstadoCamera>(EstadoCamera.Vinculando) }
+    // La linterna solo se puede ofrecer cuando ya hay una cámara vinculada y
+    // esa cámara reporta flash. Se guarda el Camera de CameraX, no el
+    // CameraControl: el control se pide en cada toque y sobrevive a los rebind.
+    var camara by remember { mutableStateOf<Camera?>(null) }
+    var linterna by remember { mutableStateOf(false) }
+    var tieneLinterna by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
         if (permiso) {
             CameraAnalyzer(
                 onCode = vm::onBarcode,
                 onEstado = { estadoCamera = it },
+                onCamera = {
+                    camara = it
+                    tieneLinterna = it.cameraInfo.hasFlashUnit()
+                    // Una cámara recién vinculada arranca con el torch apagado:
+                    // si el permiso se revocó y volvió a concederse, el estado
+                    // viejo del botón mentiría.
+                    linterna = false
+                },
             )
+            // Retícula de encuadre: cuatro esquinas en L, dibujadas a mano para
+            // no meter un borde completo que compita con el código.
+            if (estadoCamera is EstadoCamera.Lista) {
+                Canvas(
+                    Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.72f)
+                        .aspectRatio(1.4f),
+                ) {
+                    val brazo = 24.dp.toPx()
+                    val grosor = 2.dp.toPx()
+                    val ancho = size.width
+                    val alto = size.height
+
+                    drawLine(Color.White, Offset(0f, 0f), Offset(brazo, 0f), grosor)
+                    drawLine(Color.White, Offset(0f, 0f), Offset(0f, brazo), grosor)
+                    drawLine(Color.White, Offset(ancho - brazo, 0f), Offset(ancho, 0f), grosor)
+                    drawLine(Color.White, Offset(ancho, 0f), Offset(ancho, brazo), grosor)
+                    drawLine(Color.White, Offset(0f, alto - brazo), Offset(0f, alto), grosor)
+                    drawLine(Color.White, Offset(0f, alto), Offset(brazo, alto), grosor)
+                    drawLine(Color.White, Offset(ancho - brazo, alto), Offset(ancho, alto), grosor)
+                    drawLine(Color.White, Offset(ancho, alto - brazo), Offset(ancho, alto), grosor)
+                }
+            }
             // Velo para que el texto y el botón de salir se lean sobre cualquier
             // foto: el caso de uso de esta app es fotografiar productos en una
             // góndola, y contra una caja blanca o una ventana el texto blanco
@@ -241,14 +286,25 @@ fun ScannerScreen(
                     modifier = Modifier.padding(horizontal = Espacio.l),
                 )
             }
-            Box(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(Espacio.s)
-                    .background(Color.Black.copy(alpha = 0.55f), MaterialTheme.shapes.extraLarge),
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.Close, "Cerrar", tint = Color.White)
+            if (tieneLinterna) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .padding(Espacio.s)
+                        .background(Color.Black.copy(alpha = 0.55f), MaterialTheme.shapes.extraLarge),
+                ) {
+                    IconButton(onClick = {
+                        linterna = !linterna
+                        camara?.cameraControl?.enableTorch(linterna)
+                    }) {
+                        Icon(
+                            painter = painterResource(
+                                if (linterna) R.drawable.ic_flash_on else R.drawable.ic_flash_off,
+                            ),
+                            contentDescription = if (linterna) "Apagar linterna" else "Encender linterna",
+                            tint = Color.White,
+                        )
+                    }
                 }
             }
         } else {
@@ -280,6 +336,18 @@ fun ScannerScreen(
                 }
             }
         }
+        // La salida va fuera del if: con el permiso denegado o sin cámara la
+        // pantalla igual necesita un cierre visible, no solo el back del sistema.
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(Espacio.s)
+                .background(Color.Black.copy(alpha = 0.55f), MaterialTheme.shapes.extraLarge),
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Filled.Close, "Cerrar", tint = Color.White)
+            }
+        }
     }
 }
 
@@ -287,6 +355,7 @@ fun ScannerScreen(
 private fun CameraAnalyzer(
     onCode: (String?) -> Unit,
     onEstado: (EstadoCamera) -> Unit,
+    onCamera: (Camera) -> Unit,
 ) {
     val context = LocalContext.current
     val previewView = remember { PreviewView(context) }
@@ -314,7 +383,7 @@ private fun CameraAnalyzer(
     AndroidView(
         factory = { previewView },
         modifier = Modifier.fillMaxSize(),
-        update = { view -> bindCamera(view, scanner, executor, onCode, onEstado) },
+        update = { view -> bindCamera(view, scanner, executor, onCode, onEstado, onCamera) },
     )
 }
 
@@ -351,6 +420,7 @@ private fun bindCamera(
     executor: java.util.concurrent.Executor,
     onCode: (String?) -> Unit,
     onEstado: (EstadoCamera) -> Unit,
+    onCamera: (Camera) -> Unit,
 ) {
     if (previewView.isVinculado) return
     previewView.isVinculado = true
@@ -413,11 +483,12 @@ private fun bindCamera(
                     }
                 }
 
-            provider.bindToLifecycle(
+            val camera = provider.bindToLifecycle(
                 lifecycleOwner,
                 CameraSelector.DEFAULT_BACK_CAMERA,
                 UseCaseGroup.Builder().addUseCase(preview).addUseCase(analysis).build(),
             )
+            onCamera(camera)
             onEstado(EstadoCamera.Lista)
         } catch (e: Exception) {
             previewView.isVinculado = false
