@@ -20,17 +20,17 @@ import androidx.compose.ui.unit.sp
 val Typography = Typography(
     headlineMedium = TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 30.sp,
+        lineHeight = 36.sp,
     ),
     headlineSmall = TextStyle(
         fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
+        fontSize = 25.sp,
+        lineHeight = 31.sp,
     ),
     titleLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 22.sp,
         lineHeight = 28.sp,
     ),
@@ -72,10 +72,11 @@ val Typography = Typography(
  */
 val PrecioDetalle: TextStyle = Typography.headlineMedium.copy(fontFeatureSettings = "tnum")
 
-/** Precio en tarjeta: 20 sp semi-bold con cifras tabulares. */
+/** Precio en tarjeta: cifra protagonista con tabulares para comparar de un vistazo. */
 val PrecioTarjeta: TextStyle = Typography.titleLarge.copy(
-    fontSize = 20.sp,
+    fontSize = 21.sp,
     lineHeight = 26.sp,
+    fontWeight = FontWeight.Bold,
     fontFeatureSettings = "tnum",
 )
 

@@ -313,9 +313,9 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
     ) {
         Card(
             shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             // Sin borde: la jerarquía la da el tono del contenedor (DESIGN.md §3.2).
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         ) {
             Column(Modifier.fillMaxWidth().padding(Espacio.m)) {
                 // El nombre usa el ancho completo: antes el stepper y el importe

@@ -15,11 +15,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationItemIconPosition
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -135,10 +135,10 @@ private fun AppNav(mainVm: MainViewModel) {
                 enter = fadeIn(tween(150)) + slideInVertically(animationSpec = tween(150)) { it },
                 exit = fadeOut(tween(150)) + slideOutVertically(animationSpec = tween(150)) { it },
             ) {
-                NavigationBar {
+                ShortNavigationBar {
                     destinos.forEach { d ->
                         val seleccionada = actual?.hierarchy?.any { it.route == d.route } == true
-                        NavigationBarItem(
+                        ShortNavigationBarItem(
                             selected = seleccionada,
                             onClick = {
                                 navController.navigate(d.route) {
@@ -181,6 +181,7 @@ private fun AppNav(mainVm: MainViewModel) {
                                 }
                             },
                             label = { Text(d.label) },
+                            iconPosition = NavigationItemIconPosition.Top,
                         )
                     }
                 }

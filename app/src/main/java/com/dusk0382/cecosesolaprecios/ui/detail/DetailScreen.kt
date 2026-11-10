@@ -2,7 +2,6 @@ package com.dusk0382.cecosesolaprecios.ui.detail
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,8 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,21 +19,23 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +53,9 @@ import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.formatFechaHora
 import com.dusk0382.cecosesolaprecios.ui.common.formatearFechaIso
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.ButtonDefaults
+import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,41 +136,51 @@ fun DetailScreen(
             return@Scaffold
         }
         Column(
-            Modifier.fillMaxSize().padding(insets).verticalScroll(rememberScrollState())
-                .padding(Espacio.l),
+            Modifier
+                .fillMaxSize()
+                .padding(insets)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Espacio.l, vertical = Espacio.m),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            AsyncImage(
-                model = prod.imagenGrandeUrl ?: prod.imagenUrl,
-                // El nombre está dos líneas más abajo como texto. Con descripción
-                // en la imagen, TalkBack lo anuncia dos veces seguidas, como dos
-                // elementos distintos. En la tarjeta ya es null por esto.
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                // Mismo plato claro que la tarjeta: la foto viene sobre blanco y
-                // en oscuro un cuadrado blanco suelto no es una decisión visual.
-                modifier = Modifier
-                    .size(220.dp)
-                    .clip(MaterialTheme.shapes.large)
-                    .background(PlatoImagen)
-                    .padding(Espacio.s),
-            )
+            Surface(
+                color = PlatoImagen,
+                shape = MaterialTheme.shapes.extraLarge,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                AsyncImage(
+                    model = prod.imagenGrandeUrl ?: prod.imagenUrl,
+                    // El nombre está abajo como texto. Con descripción en la imagen,
+                    // TalkBack lo anuncia dos veces seguidas.
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 220.dp, max = 320.dp)
+                        .padding(Espacio.l),
+                )
+            }
+
             Spacer(Modifier.height(Espacio.l))
-            Text(formatearNombreProducto(prod.nombre), style = MaterialTheme.typography.titleLarge)
+            Text(
+                formatearNombreProducto(prod.nombre),
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            )
 
             Spacer(Modifier.height(Espacio.m))
             val (precio, moneda) = prod.precioMostrado()
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Espacio.m)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Espacio.m),
+            ) {
                 PriceText(
                     valor = precio,
                     prefix = moneda,
-                    style = PrecioDetalle,
+                    style = PrecioDetalle.copy(fontWeight = FontWeight.ExtraBold),
                 )
                 DeltaBadge(prod.precioCec, prod.precioAnteriorCec) // CEC↔CEC: misma moneda
             }
-            // La otra moneda, tal cual viene de la fuente: el precio en Bs y el
-            // solidario son precios distintos, no una conversión — por eso
-            // se rotula "precio en bolívares" y nunca "equivalente".
+
             val secundario = if (moneda == "USD") {
                 "Precio en bolívares: Bs ${formatBs(prod.precioBs)}"
             } else {
@@ -176,13 +190,10 @@ fun DetailScreen(
                 Spacer(Modifier.height(Espacio.xs))
                 Text(
                     secundario,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // El precio solidario puede ser viejo sin que la app falle: pasadas
-            // 12 h se avisa, sin color de error. Si está fresco no lleva etiqueta;
-            // si no hay fecha se dice, en vez de fingir que está al día.
             if (prod.precioCec != null) {
                 val ultima = ultimaUsd
                 val aviso = when {
@@ -202,52 +213,71 @@ fun DetailScreen(
             }
 
             Spacer(Modifier.height(Espacio.l))
-            Column(
-                Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(Espacio.s),
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                // Datos reales solamente (DESIGN.md §3.9): presentación vacía
-                // ("item") y marca redundante con categoría no se pintan.
-                prod.marca?.takeUnless { it.isBlank() || it == prod.categoria }
-                    ?.let { FilaDato("Marca", it) }
-                prod.presentacion?.takeUnless { it.isBlank() || it.equals("item", ignoreCase = true) }
-                    ?.let { FilaDato("Presentación", it) }
-                prod.categoria?.takeUnless { it.isBlank() }
-                    ?.let { FilaDato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
-                prod.barcode?.takeIf { esBarcodeValido(it) }?.let { FilaDato("Código de barras", it) }
-                prod.updatedAt?.takeUnless { it.isBlank() }
-                ?.let { FilaDato("Actualizado", formatearFechaIso(it)) }
+                Column(
+                    Modifier.fillMaxWidth().padding(Espacio.l),
+                    verticalArrangement = Arrangement.spacedBy(Espacio.s),
+                ) {
+                    // Datos reales solamente (DESIGN.md §3.9): presentación vacía
+                    // ("item") y marca redundante con categoría no se pintan.
+                    prod.marca?.takeUnless { it.isBlank() || it == prod.categoria }
+                        ?.let { FilaDato("Marca", it) }
+                    prod.presentacion?.takeUnless { it.isBlank() || it.equals("item", ignoreCase = true) }
+                        ?.let { FilaDato("Presentación", it) }
+                    prod.categoria?.takeUnless { it.isBlank() }
+                        ?.let { FilaDato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
+                    prod.barcode?.takeIf { esBarcodeValido(it) }?.let { FilaDato("Código de barras", it) }
+                    prod.updatedAt?.takeUnless { it.isBlank() }
+                        ?.let { FilaDato("Actualizado", formatearFechaIso(it)) }
+                }
             }
 
             Spacer(Modifier.height(Espacio.xl))
-            // Dos árboles distintos ocupan la misma región: botón si todavía no
-            // está en el carrito, stepper si ya está. El Crossfade evita el salto
-            // seco; los cambios de cantidad no animan porque el `targetState` no
-            // cambia, solo se recompone el contenido con `qty`.
             Crossfade(
                 targetState = qty > 0,
                 animationSpec = tween(150),
                 label = "detalle-accion",
             ) { enCarrito ->
                 if (enCarrito) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Stepper(cantidad = qty, onCantidad = vm::setQuantity)
-                        Text(
-                            " en el carrito",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Row(
+                            Modifier.fillMaxWidth().padding(Espacio.m),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Stepper(cantidad = qty, onCantidad = vm::setQuantity)
+                            Text(
+                                " en el carrito",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
                     }
                 } else {
-                    Button(onClick = { vm.setQuantity(1) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Agregar al carrito")
+                    Button(
+                        onClick = { vm.setQuantity(1) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = Espacio.toqueMinimo),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    ) {
+                        Text(
+                            "Agregar al carrito",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        )
                     }
                 }
             }
+            Spacer(Modifier.height(Espacio.l))
         }
     }
 }
