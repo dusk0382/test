@@ -123,6 +123,10 @@ SIMBOLOS_QUE_SE_OLVIDAN = [
     # Graficos y animacion: son los que se olvidan al escribir un Icon o un
     # painter, y el error sale igual de invisible.
     "SolidColor", "Brush", "TextStyle", "FontWeight", "TileMode", "BlendMode",
+    # Run 84: una limpieza de imports "sin uso" borró Text, TextButton e Icons de
+    # SettingsScreen (y hiltViewModel), y el build murió en compileDebugKotlin.
+    # El checker no los vigilaba porque no estaban en la lista.
+    "Text", "TextButton", "Icons", "hiltViewModel",
     "scaleIn", "scaleOut", "slideInVertically", "slideOutVertically",
     "AnimatedContent", "navArgument", "NavType", "NavHost", "composable",
     # Ojo: `enterTransition`/`exitTransition`/`popEnterTransition`/`popExitTransition`
