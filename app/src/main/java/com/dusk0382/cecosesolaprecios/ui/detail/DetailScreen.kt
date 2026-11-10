@@ -179,36 +179,9 @@ fun DetailScreen(
                 DeltaBadge(prod.precioCec, prod.precioAnteriorCec) // CEC↔CEC: misma moneda
             }
 
-            val secundario = if (moneda == "USD") {
-                "Precio en bolívares: Bs ${formatBs(prod.precioBs)}"
-            } else {
-                prod.precioCec?.takeIf { it > 0 }?.let { "Precio solidario: ${formatBs(it)} USD" }
-            }
-            if (secundario != null) {
-                Spacer(Modifier.height(Espacio.xs))
-                Text(
-                    secundario,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (prod.precioCec != null) {
-                val ultima = ultimaUsd
-                val aviso = when {
-                    ultima == null -> "Precio solidario sin fecha de actualización."
-                    System.currentTimeMillis() - ultima > 12L * 60 * 60 * 1000 ->
-                        "Precio solidario del ${formatFechaHora(ultima)}; puede estar desactualizado."
-                    else -> null
-                }
-                if (aviso != null) {
-                    Spacer(Modifier.height(Espacio.xs))
-                    Text(
-                        aviso,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            // Precio principal mostrado arriba (USD o Bs según disponibilidad)
+            // UI limpia: solo precio principal
+            // para mantener la UI limpia y enfocada en el precio principal.
 
             Spacer(Modifier.height(Espacio.l))
             Surface(

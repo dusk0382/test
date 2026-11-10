@@ -183,7 +183,7 @@ fun SettingsScreen(
     val themeMode by mainVm.themeMode.collectAsStateWithLifecycle()
     var confirmarReconstruccion by remember { mutableStateOf(false) }
 
-    // Pasadas 12 h, el precio solidario es un dato viejo, no un fallo: se avisa
+    // Pasadas 12 h, el precio en dólares puede estar desactualizado
     // sin color de error. Sin fecha de enriquecimiento también se avisa.
     val enrichViejo = estado.cargado &&
         (estado.milisApi?.let { System.currentTimeMillis() - it > 12L * 60 * 60 * 1000 } ?: true)
@@ -221,9 +221,9 @@ fun SettingsScreen(
             if (enrichViejo) {
                 Text(
                     if (estado.milisApi == null) {
-                        "Sin precio solidario actualizado. Verificá datos antes de usarlo."
+                        "Sin precio en dólares actualizado. Verificá datos antes de usarlo."
                     } else {
-                        "Precio solidario desactualizado (más de 12 h). Verificá datos antes de usarlo."
+                        "Precio en dólares desactualizado (más de 12 h). Verificá datos antes de usarlo."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -232,7 +232,7 @@ fun SettingsScreen(
             }
             FilaDato("Productos", estado.productos?.toString() ?: "leyendo…")
             estado.tasaVed?.let { tasa ->
-                FilaDato("Tasa del precio solidario", "1 USD = Bs ${formatBs(tasa)}")
+                FilaDato("Tasa de cambio", "1 USD = Bs ${formatBs(tasa)}")
             }
             if (estado.ferias.isNotEmpty()) {
                 FilaDatoBloque("Ferias", estado.ferias.joinToString(", "))
@@ -311,10 +311,10 @@ fun SettingsScreen(
     if (confirmarReconstruccion) {
         AlertDialog(
             onDismissRequest = { confirmarReconstruccion = false },
-            title = { Text("¿Reconstruir el precio solidario?") },
+            title = { Text("¿Reconstruir precios en dólares?") },
             text = {
                 Text(
-                    "Se borrarán los precios solidarios y se volverán a descargar de la lista " +
+                    "Se borrarán los precios en dólares y se volverán a descargar de la lista " +
                         "oficial. Favoritos y carrito se conservan.",
                 )
             },

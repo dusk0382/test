@@ -57,7 +57,6 @@ import androidx.lifecycle.viewModelScope
 import com.dusk0382.cecosesolaprecios.data.local.CartLine
 import com.dusk0382.cecosesolaprecios.domain.formatearNombreProducto
 import com.dusk0382.cecosesolaprecios.data.repository.ProductRepository
-import com.dusk0382.cecosesolaprecios.ui.common.LocalUsdPrecio
 import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.importeLinea
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
@@ -104,9 +103,9 @@ class CartViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
     /**
-     * Total del precio solidario. **null si algún producto del carrito aún no tiene
-     * solidario**: sumar solo los que sí lo tienen daría un total menor al real y
-     * el usuario lo descubriría en la caja. En ese caso se muestra Bs.
+     * Total en USD. **null si algún producto del carrito aún no tiene precio
+     * en dólares**: sumar solo los que sí lo tienen daría un total menor al real.
+     * En ese caso se muestra Bs.
      */
     val totalCec: StateFlow<Double?> = lineasState
         .map { ls ->
@@ -137,14 +136,13 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
     val cargado by vm.cargado.collectAsStateWithLifecycle()
     val totalBs by vm.totalBs.collectAsStateWithLifecycle()
     val totalCec by vm.totalCec.collectAsStateWithLifecycle()
-    val usd = LocalUsdPrecio.current
     val context = LocalContext.current
     var confirmarVaciar by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // El total sigue la moneda del toggle solo si TODOS los ítems tienen ese precio.
-    val mostrarTotalUsd = usd && totalCec != null
+    // El total se muestra en USD si todos los ítems tienen precio en dólares.
+    val mostrarTotalUsd = totalCec != null
 
     // Quitar es reversible mientras el snackbar siga abierto: la línea vuelve
     // con la cantidad exacta que tenía. Si se cierra sin tocar "Deshacer", no
@@ -198,7 +196,6 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
                         // undo restaura la cantidad vigente al momento de quitar.
                         CartRow(
                             linea = linea,
-                            usd = usd,
                             onQty = { q ->
                                 if (q <= 0) quitarConUndo(linea)
                                 else vm.setQuantity(linea.productId, q)
@@ -218,9 +215,9 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
                 ) {
                     Column {
                         Text("Total", style = MaterialTheme.typography.titleMedium)
-                        if (usd && totalCec == null) {
+                        if (totalCec == null && lineas.isNotEmpty()) {
                             Text(
-                                "Algunos precios aún no tienen valor en USD",
+                                "Algunos productos sin precio en dólares",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -237,7 +234,7 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
                     horizontalArrangement = Arrangement.spacedBy(Espacio.s),
                 ) {
                     Button(
-                        onClick = { compartirCarrito(context, lineas, usd) },
+                        onClick = { compartirCarrito(context, lineas) },
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(Icons.Filled.Share, null, Modifier.size(18.dp))
@@ -270,7 +267,7 @@ fun CartScreen(vm: CartViewModel = hiltViewModel()) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuitar: () -> Unit) {
+private fun CartRow(linea: CartLine, onQty: (Int) -> Unit, onQuitar: () -> Unit) {
     // La fila se borra desde `onQuitar` en el gesto, no desde confirmValueChange:
     // borrar ahí compite con la animación de settle y el renglón desaparecía
     // a media transición. Además hay un camino sin gesto: el "−" del stepper en
@@ -335,7 +332,7 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
                     Stepper(cantidad = linea.quantity, onCantidad = onQty)
                     Spacer(Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
-                        val (importe, monedaLinea) = linea.importeLinea(usd)
+                        val (importe, monedaLinea) = linea.importeLinea()
                         PriceText(
                             valor = importe,
                             prefix = monedaLinea,
@@ -347,7 +344,7 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
                         // leía "USD c/u 2,1" al lado de "USD 2,1": ruido puro. Con
                         // dos o más unidades sí aporta información.
                         if (linea.quantity > 1) {
-                            val (unitario, moneda) = linea.precioMostrado(usd)
+                            val (unitario, moneda) = linea.precioMostrado()
                             PriceText(
                                 valor = unitario,
                                 prefix = "$moneda c/u",
@@ -363,17 +360,15 @@ private fun CartRow(linea: CartLine, usd: Boolean, onQty: (Int) -> Unit, onQuita
 }
 
 /**
- * Texto plano para compartir. El total usa la misma regla que la pantalla
- * (USD solo si todos los ítems lo tienen); el precio unitario se rotula por
- * línea, así el mensaje nunca mezcla monedas bajo un solo "Total".
+ * Texto plano para compartir. El total usa USD si todos los ítems lo tienen;
+ * si no, bolívares. El precio unitario se rotula por línea.
  */
-private fun compartirCarrito(context: Context, lineas: List<CartLine>, usd: Boolean) {
-    // Una sola moneda en todo el mensaje: USD solo si todos los ítems lo tienen.
-    val usarUsd = usd && lineas.isNotEmpty() && lineas.all { it.precioCec != null }
+private fun compartirCarrito(context: Context, lineas: List<CartLine>) {
+    val usarUsd = lineas.isNotEmpty() && lineas.all { it.precioCec != null }
     val sb = StringBuilder()
     sb.append("Mi carrito — precios Cecosesola\n\n")
     lineas.forEach { l ->
-        val (precio, moneda) = l.precioMostrado(usarUsd)
+        val (precio, moneda) = if (usarUsd) (l.precioCec!! to "USD") else (l.precioBs to "Bs")
         sb.append("• ${formatearNombreProducto(l.nombre)} ×${l.quantity} = $moneda ${formatBs(precio * l.quantity)}\n")
     }
     val totalTexto = if (usarUsd) {
@@ -382,8 +377,8 @@ private fun compartirCarrito(context: Context, lineas: List<CartLine>, usd: Bool
         "Bs ${formatBs(lineas.sumOf { it.precioBs * it.quantity })}"
     }
     sb.append("\nTotal: $totalTexto")
-    if (usd && !usarUsd) {
-        sb.append("\n(Algunos productos no tienen precio solidario; se muestran en bolívares.)")
+    if (!usarUsd && lineas.any { it.precioCec != null }) {
+        sb.append("\n(Algunos productos no tienen precio en dólares; se muestran en bolívares.)")
     }
 
     val intent = Intent(Intent.ACTION_SEND).apply {

@@ -57,7 +57,7 @@ class DetailViewModel @Inject constructor(
 
     /**
      * Epoch millis del último enriquecimiento de la API, o null si la app nunca
-     * sincronizó el precio solidario. Se lee una sola vez al abrir la ficha: la
+     * sincronizó el precio en dólares. Se lee una sola vez al abrir la ficha: la
      * antigüedad no cambia mientras se mira el producto.
      */
     val ultimaActualizacionUsd: StateFlow<Long?> = _ultimaActualizacionUsd.asStateFlow()

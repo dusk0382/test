@@ -32,7 +32,7 @@ data class ProductEntity(
     val presentacion: String? = null,
     val barcode: String? = null,
     val imagenGrandeUrl: String? = null,
-    /** Precio CEC ("precio solidario") actual — ≈ USD 1:1. */
+    /** Precio en dólares (CEC) actual — ≈ USD 1:1. */
     val precioCec: Double? = null,
     /** Precio CEC de la actualización anterior (solo API). El % de variación se
      *  calcula de la misma moneda a los dos lados; Bs solo para mostrar. */

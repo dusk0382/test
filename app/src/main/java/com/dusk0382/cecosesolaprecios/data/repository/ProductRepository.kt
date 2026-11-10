@@ -149,7 +149,7 @@ class ProductRepository @Inject constructor(
             db.productDao().clearEnrichment()
             metaDao.put(MetaEntity(MetaKeys.API_VERSION, ""))
             // La fecha mostrada en Ajustes también deja de mentir: hasta que
-            // termine el worker no hay precio solidario válido.
+            // termine el worker no hay precio en dólares válido.
             metaDao.put(MetaEntity(MetaKeys.API_SYNC_AT, ""))
         }
         requestEnrich()

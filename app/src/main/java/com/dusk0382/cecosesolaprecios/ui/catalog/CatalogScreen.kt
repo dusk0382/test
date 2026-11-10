@@ -73,7 +73,6 @@ import com.dusk0382.cecosesolaprecios.R
 import com.dusk0382.cecosesolaprecios.data.local.ClaseConteo
 import com.dusk0382.cecosesolaprecios.domain.Rubro
 import com.dusk0382.cecosesolaprecios.domain.etiquetaVisible
-import com.dusk0382.cecosesolaprecios.ui.common.LocalUsdPrecio
 import com.dusk0382.cecosesolaprecios.ui.common.RenglonProducto
 import com.dusk0382.cecosesolaprecios.ui.theme.Espacio
 import kotlinx.coroutines.flow.StateFlow
@@ -255,14 +254,6 @@ fun CatalogScreen(
                 query = { query },
                 onChange = { query = it; vm.onBusquedaChange(it) },
                 modifier = Modifier.padding(horizontal = Espacio.l, vertical = Espacio.s),
-            )
-
-            // Los precios solidarios (USD) pueden ser viejos aunque la lista en Bs
-            // esté al día. El aviso lee `LocalUsdPrecio` y el flujo dentro del
-            // hijo: un cambio de moneda no recompone el catálogo entero.
-            AvisoPrecioSolidarioViejo(
-                enrichViejoFlow = vm.enrichViejo,
-                onActualizar = vm::refresh,
             )
 
             // — Filtros activos como chips descartables, sólo mientras existan —
@@ -490,33 +481,6 @@ private fun CampoBusqueda(
             }
         }
         Spacer(Modifier.width(Espacio.s))
-    }
-}
-
-/**
- * Aviso de CEC viejo. Es un componente chico a propósito: lee `LocalUsdPrecio`
- * y el flujo de frescura acá, no en `CatalogScreen`, para que cambiar la moneda
- * no invalide la cabecera, la grilla ni el scroll.
- */
-@Composable
-private fun AvisoPrecioSolidarioViejo(
-    enrichViejoFlow: StateFlow<Boolean>,
-    onActualizar: () -> Unit,
-) {
-    if (!LocalUsdPrecio.current) return
-    val enrichViejo by enrichViejoFlow.collectAsStateWithLifecycle()
-    if (!enrichViejo) return
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = Espacio.l),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "Precio solidario desactualizado.",
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TextButton(onClick = onActualizar) { Text("Actualizar") }
     }
 }
 
