@@ -53,8 +53,6 @@ import com.dusk0382.cecosesolaprecios.ui.common.formatBs
 import com.dusk0382.cecosesolaprecios.ui.common.formatFechaHora
 import com.dusk0382.cecosesolaprecios.ui.common.formatearFechaIso
 import com.dusk0382.cecosesolaprecios.ui.common.precioMostrado
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.ButtonDefaults
 import com.dusk0382.cecosesolaprecios.ui.theme.LocalColoresPrecio
 
 @OptIn(ExperimentalMaterial3Api::class)
