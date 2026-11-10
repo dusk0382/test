@@ -1,55 +1,38 @@
-package com.dusk0382.cecosesolaprecios.ui.common
-
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.compositionLocalOf
-import com.dusk0382.cecosesolaprecios.data.local.CartLine
-import com.dusk0382.cecosesolaprecios.data.local.ProductEntity
-
 /**
- * ¿Mostrar los precios en USD (el precio solidario de la API, que llama CEC) en
- * vez de Bs?
- * Un solo valor para toda la app: se provee en MainActivity desde AppPrefs y lo
- * leen las tarjetas, el detalle y el carrito sin ir pasando parámetros.
+ * Precio a pintar: siempre en USD (dólares), usando el precio CEC de la API.
+ * El CEC es el código interno con el que la API nombra el precio solidario,
+ * y su propio officialRate dice `base: "CEC"` con `forSales: [{USD, 1}, {VED, 832.49}]`,
+ * o sea **1 CEC = 1 USD** y 832,49 son los bolívares de un dólar.
  *
- * `compositionLocalOf` y no `staticCompositionLocalOf`: el usuario puede cambiar
- * este toggle en Ajustes, y con la versión `static` el cambio de valor
- * recomponía **toda** la app (catálogo, detalle y carrito). La versión normal
- * solo invalida a quienes leen el valor: las 6 tarjetas visibles.
+ * Los nombres de campo (`precioCec`, `precioAnteriorCec`) se dejan como están
+ * porque describen lo que trae el origen, que es lo que hay que preservar.
+ *
+ * SIEMPRE se muestra USD: sin toggle, sin conmutación, sin "solidario" como etiqueta
+ * separada. El precio es el precio.
  */
-val LocalUsdPrecio = compositionLocalOf { false }
+val LocalUsdPrecio = compositionLocalOf { true } // Siempre activado: precio en USD
 
 /**
- * Precio a pintar + su etiqueta de moneda, según el toggle.
+ * Precio a pintar + su etiqueta de moneda, SIEMPRE en USD.
  * El CEC ("precio solidario") solo existe cuando la API oficial ya enriqueció:
- * si no, siempre Bs — nunca se inventa una conversión.
+ * si no, siempre mostramos el precio BS con aviso, nunca una conversión inventada.
  */
 @Composable
 @ReadOnlyComposable
 fun ProductEntity.precioMostrado(): Pair<Double, String> {
-    val cecActivado = LocalUsdPrecio.current
     val cec = precioCec
-    // Se muestra como **USD**. "CEC" es el código interno con el que la API
-    // nombra el precio solidario, y no es una moneda que el usuario conozca: en
-    // la app no aparece nunca. Que el payload lo llame CEC no lo convierte en
-    // otra cosa — su propio `officialRate` dice `base: "CEC"` con
-    // `forSales: [{USD, 1}, {VED, 832.49}]`, o sea **1 CEC = 1 USD** y 832,49
-    // son justamente los Bs de un dólar.
-    //
-    // Los nombres de campo (`precioCec`, `precioAnteriorCec`) se dejan como
-    // están porque describen lo que trae el origen, que es lo que hay que
-    // preservar para no perder trazabilidad con la API.
-    return if (cecActivado && cec != null) cec to "USD" else precioBs to "Bs"
+    // SIEMPRE USD: si hay CEC, mostraremos USD; si no hay CEC, mostraremos BS con aviso
+    return if (cec != null) cec to "USD" else precioBs to "Bs (sin enriquecer)"
 }
 
 /**
  * Igual que [precioMostrado] pero para una línea del carrito.
- * Misma regla: sin precio CEC guardado, se muestra Bs — nunca una conversión
- * calculada al vuelo con la tasa del día (el total no cuadraría con la feria).
+ * Misma regla: sin precio CEC guardado, se muestra BS — nunca una conversión
+ * calculada al vuelo con la tasa del día.
  */
-fun CartLine.precioMostrado(cecActivado: Boolean): Pair<Double, String> {
+fun CartLine.precioMostrado(): Pair<Double, String> {
     val cec = precioCec
-    return if (cecActivado && cec != null) cec to "USD" else precioBs to "Bs"
+    return if (cec != null) cec to "USD" else precioBs to "Bs (sin enriquecer)"
 }
 
 /**
@@ -57,7 +40,7 @@ fun CartLine.precioMostrado(cecActivado: Boolean): Pair<Double, String> {
  * [PriceText]. Devuelve el número, no el texto: el formateo y el color los pone
  * el componente, para que no haya dos lugares que pinten un precio.
  */
-fun CartLine.importeLinea(cecActivado: Boolean): Pair<Double, String> {
-    val (precio, moneda) = precioMostrado(cecActivado)
+fun CartLine.importeLinea(): Pair<Double, String> {
+    val (precio, moneda) = precioMostrado()
     return precio * quantity to moneda
 }

@@ -50,7 +50,6 @@ import com.dusk0382.cecosesolaprecios.ui.cart.CartScreen
 import com.dusk0382.cecosesolaprecios.ui.cart.CartViewModel
 import com.dusk0382.cecosesolaprecios.ui.catalog.CatalogScreen
 import com.dusk0382.cecosesolaprecios.ui.catalog.CatalogViewModel
-import com.dusk0382.cecosesolaprecios.ui.common.LocalUsdPrecio
 import com.dusk0382.cecosesolaprecios.ui.detail.DetailScreen
 import com.dusk0382.cecosesolaprecios.ui.favorites.FavoritesScreen
 import com.dusk0382.cecosesolaprecios.ui.scanner.ScannerScreen
@@ -76,7 +75,6 @@ class MainActivity : ComponentActivity() {
             // cambia, así que un toggle recompone el árbol una vez, no por frame.
             val mainVm: MainViewModel = hiltViewModel()
             val themeMode by mainVm.themeMode.collectAsStateWithLifecycle()
-            val usd by mainVm.usd.collectAsStateWithLifecycle()
 
             val oscuro = when (themeMode) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -86,9 +84,7 @@ class MainActivity : ComponentActivity() {
 
             CecosesolaTheme(darkTheme = oscuro) {
                 Surface(color = MaterialTheme.colorScheme.background) {
-                    CompositionLocalProvider(LocalUsdPrecio provides usd) {
-                        AppNav(mainVm)
-                    }
+                    AppNav(mainVm)
                 }
             }
         }

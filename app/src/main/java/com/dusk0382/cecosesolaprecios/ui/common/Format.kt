@@ -95,17 +95,11 @@ fun formatearFechaIso(iso: String): String = try {
  * Precio con numerales tabulares para que las cifras no bailen al alinearse.
  *
  * Es el ÚNICO lugar donde se pinta un precio: catálogo, detalle y carrito pasan
- * por acá. Antes cada pantalla escribía su propio `Text` con su propio color y su
- * propio `.copy(fontFeatureSettings = "tnum")` inlineado, y por eso el precio del
- * detalle salió en `colorScheme.primary` (naranja de marca, 3.26:1 — falla AA)
- * mientras el de la tarjeta usaba el token de acento (5.66:1). Dos precios, dos
- * reglas, y la que no cumplía era justo la más importante.
+ * por acá. Siempre se muestra el precio tal como viene (USD si hay CEC,
+ * Bs si no hay dato enriquecido), sin toggle ni conmutación de moneda.
  *
  * El color por defecto es el token de acento del precio, no `primary`: el
  * naranja de marca es relleno (DESIGN.md §3.11).
- *
- * El `formatBs` va en `remember` porque el precio se recompone en cada cambio de
- * estado de la pantalla y `DecimalFormat.format` no es gratis.
  */
 @Composable
 fun PriceText(

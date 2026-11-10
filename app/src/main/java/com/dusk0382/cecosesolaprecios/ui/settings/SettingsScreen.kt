@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -183,7 +181,6 @@ fun SettingsScreen(
 ) {
     val estado by vm.estado.collectAsStateWithLifecycle()
     val themeMode by mainVm.themeMode.collectAsStateWithLifecycle()
-    val usd by mainVm.usd.collectAsStateWithLifecycle()
     var confirmarReconstruccion by remember { mutableStateOf(false) }
 
     // Pasadas 12 h, el precio solidario es un dato viejo, no un fallo: se avisa
@@ -296,27 +293,7 @@ fun SettingsScreen(
                 }
             }
 
-            if (estado.tasaVed != null) {
-                Spacer(Modifier.height(Espacio.l))
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .toggleable(
-                            value = usd,
-                            role = Role.Switch,
-                            onValueChange = mainVm::setUsd,
-                        )
-                        .semantics(mergeDescendants = true) {},
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "Mostrar precio solidario (USD)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Switch(checked = usd, onCheckedChange = null)
-                }
-            }
+
 
             Spacer(Modifier.height(Espacio.xl))
             HorizontalDivider()
