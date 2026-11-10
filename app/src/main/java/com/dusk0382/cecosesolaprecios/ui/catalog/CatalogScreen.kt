@@ -210,39 +210,48 @@ fun CatalogScreen(
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            // — Cabecera: título + escáner + filtros (con badge) + ajustes —
+            // — Cabecera: título + acciones secundarias —
             Row(
-                Modifier.fillMaxWidth().padding(start = Espacio.l, end = Espacio.xs, top = Espacio.s),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = Espacio.l, end = Espacio.xs, top = Espacio.m),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Cecosesola",
-                    style = MaterialTheme.typography.titleLarge,
+                    text = "Precios",
+                    style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.weight(1f),
                 )
-                // El escáner vive en la cabecera y no en un FAB: abajo a la
-                // derecha tapaba el stepper de la última tarjeta.
                 IconButton(onScan) {
-                    Icon(painterResource(R.drawable.ic_qr_scanner), "Escanear código de barras")
+                    Icon(
+                        painterResource(R.drawable.ic_qr_scanner),
+                        contentDescription = "Escanear código de barras",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 IconButton(onClick = { filtrosAbiertos = true }) {
                     BadgedBox(
                         badge = {
                             if (clasesSel.isNotEmpty()) {
-                                // `primary` y no el `error` por defecto del Badge:
-                                // un conteo de filtros no es un error, y el rojo
-                                // metía un segundo acento en la pantalla.
-                                Badge(containerColor = MaterialTheme.colorScheme.primary) {
+                                Badge(containerColor = MaterialTheme.colorScheme.secondary) {
                                     Text("${clasesSel.size}")
                                 }
                             }
                         },
                     ) {
-                        Icon(painterResource(R.drawable.ic_filter), "Filtros")
+                        Icon(
+                            painterResource(R.drawable.ic_filter),
+                            contentDescription = "Filtros",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
                 IconButton(onSettings) {
-                    Icon(painterResource(R.drawable.ic_settings), "Ajustes")
+                    Icon(
+                        painterResource(R.drawable.ic_settings),
+                        contentDescription = "Ajustes",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 

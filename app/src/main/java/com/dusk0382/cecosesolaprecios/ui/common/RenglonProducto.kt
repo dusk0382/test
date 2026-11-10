@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -40,9 +41,8 @@ import com.dusk0382.cecosesolaprecios.ui.theme.PlatoImagen
 import com.dusk0382.cecosesolaprecios.ui.theme.TintaSobrePlato
 
 /**
- * El primitivo único (DESIGN.md §4): imagen 1:1 sobre un plato claro, nombre a
- * 2 líneas, precio grande con cifras tabulares y control de carrito. Sin
- * categoría, sin marca, sin borde — la jerarquía la hacen el tono y el tamaño.
+ * Tarjeta de producto: precio protagonista, nombre secundario, control discreto.
+ * El precio es el elemento más grande para que la jerarquía se lea sola.
  */
 @Composable
 fun RenglonProducto(
@@ -54,9 +54,8 @@ fun RenglonProducto(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // El nombre se formatea una vez por nombre, no en cada recomposición de la
-    // tarjeta (que ocurre al cambiar cantidad o favorito).
     val nombre = remember(producto.nombre) { formatearNombreProducto(producto.nombre) }
+
     Card(
         onClick = onClick,
         modifier = modifier,
@@ -70,10 +69,8 @@ fun RenglonProducto(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .background(PlatoImagen),
+                contentAlignment = Alignment.Center,
             ) {
-                // Respaldo decorativo: si el AsyncImage no pinta nada (sin URL o
-                // carga fallida), queda este ícono tenue sobre el plato claro.
-                // El AsyncImage va encima y lo tapa cuando la foto carga.
                 Icon(
                     painter = painterResource(R.drawable.ic_image_placeholder),
                     contentDescription = null,
@@ -82,7 +79,7 @@ fun RenglonProducto(
                 )
                 AsyncImage(
                     model = producto.imagenUrl ?: producto.imagenGrandeUrl,
-                    contentDescription = null, // el nombre ya está en texto: no duplicar para el lector
+                    contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().padding(Espacio.s),
                 )
@@ -92,61 +89,38 @@ fun RenglonProducto(
                     modifier = Modifier.align(Alignment.TopEnd).padding(Espacio.xs),
                 )
             }
-            Column(Modifier.padding(Espacio.s)) {
-                // Alto fijo para que la grilla no baile, pero el texto se apoya
-                // abajo: con un nombre de una línea el hueco queda debajo de la
-                // foto y no entre el nombre y el precio.
-                Box(
-                    Modifier.fillMaxWidth().height(40.dp),
-                    contentAlignment = Alignment.BottomStart,
-                ) {
-                    Text(
-                        text = nombre,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                Spacer(Modifier.height(Espacio.xs))
 
-                // El precio va en su propia línea, no compartido con el control.
-                // Antes iban en un Row con SpaceBetween y en una tarjeta de dos
-                // columnas (~158dp) el precio más el stepper medían 215dp: el "+"
-                // quedaba cortado contra el borde y el producto era casi
-                // inagregable. De paso cumple lo que dice DESIGN.md §2 —el precio
-                // es el elemento más grande de la superficie donde aparece—: con el
-                // control al lado competían y ganaba el stepper, dos círculos de
-                // 40dp más-mind que el número.
-                val (precio, moneda) = producto.precioMostrado()
-                PriceText(
-                    valor = precio,
-                    prefix = moneda,
+            Column(Modifier.padding(Espacio.s)) {
+                Text(
+                    text = nombre,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 Spacer(Modifier.height(Espacio.xs))
 
-                // El control siempre en su propia línea, a la derecha, y siempre
-                // con la misma altura: en un LazyVerticalGrid las filas toman la
-                // altura del elemento más alto, así que un control que apareciera
-                // solo a veces dejaría el ritmo desparejo.
+                val (precio, moneda) = producto.precioMostrado()
+                PriceText(
+                    valor = precio,
+                    prefix = moneda,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(Modifier.height(Espacio.s))
+
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                    ControlCarrito(
-                        cantidad = cantidad,
-                        onCantidad = onCantidad,
-                    )
+                    ControlCarrito(cantidad = cantidad, onCantidad = onCantidad)
                 }
             }
         }
     }
 }
 
-/**
- * Corazón del primitivo: 48dp de área táctil (el mínimo de accesibilidad), icono
- * 20dp. El relleno de 48 es transparente — el área táctil es grande, el círculo
- * visible no existe, que es lo que evita el "puntito" sobre la foto.
- */
 @Composable
 private fun IconoFavorito(
     activo: Boolean,
@@ -163,25 +137,12 @@ private fun IconoFavorito(
         Icon(
             if (activo) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
             contentDescription = if (activo) "Quitar de favoritos" else "Agregar a favoritos",
-            // `primary` (naranja de marca) daba 2.75:1 sobre el contenedor de la
-            // imagen, por debajo del 3:1 que pide WCAG 1.4.11 para un icono.
-            // Tampoco sirve el token de acento de precio: ese está reservado al
-            // precio (DESIGN.md §5) y con seis favoritos en pantalla la fila de
-            // corazones brillaba más que los precios, que es exactamente lo
-            // contrario de la jerarquía del cartel. Un "error" no es: marcar algo
-            // como favorito no es un error. La tinta es oscura en ambos temas
-            // porque el plato de imagen también es claro en ambos.
-            tint = TintaSobrePlato,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),
         )
     }
 }
 
-/**
- * El control de carrito en el mismo lugar siempre (Baymard: consistencia entre
- * ítems): botón "+" cuando no está en el carrito, stepper cuando sí. Cambiar
- * de uno a otro es el mismo espacio, no un layout nuevo.
- */
 @Composable
 private fun ControlCarrito(
     cantidad: Int,
@@ -190,10 +151,6 @@ private fun ControlCarrito(
     if (cantidad > 0) {
         Stepper(cantidad = cantidad, onCantidad = onCantidad)
     } else {
-        // Sin `size()` explícito por el mismo motivo que el Stepper: el
-        // `minimumInteractiveComponentSize()` de M3 ya da 48dp de objetivo táctil
-        // y fijar 48dp aquí sólo hacía que la fila reservara más espacio del que
-        // necesita.
         FilledIconButton(
             onClick = { onCantidad(1) },
             colors = IconButtonDefaults.filledIconButtonColors(

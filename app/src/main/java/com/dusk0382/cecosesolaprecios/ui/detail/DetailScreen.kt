@@ -179,31 +179,30 @@ fun DetailScreen(
                 DeltaBadge(prod.precioCec, prod.precioAnteriorCec) // CEC↔CEC: misma moneda
             }
 
-            // Precio principal mostrado arriba (USD o Bs según disponibilidad)
-            // UI limpia: solo precio principal
-            // para mantener la UI limpia y enfocada en el precio principal.
-
-            Spacer(Modifier.height(Espacio.l))
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(
-                    Modifier.fillMaxWidth().padding(Espacio.l),
-                    verticalArrangement = Arrangement.spacedBy(Espacio.s),
+            val filas = buildList {
+                prod.marca?.takeUnless { it.isBlank() || it == prod.categoria }
+                    ?.let { add("Marca" to it) }
+                prod.presentacion?.takeUnless { it.isBlank() || it.equals("item", ignoreCase = true) }
+                    ?.let { add("Presentación" to it) }
+                prod.categoria?.takeUnless { it.isBlank() }
+                    ?.let { add("Categoría" to it.replaceFirstChar { c -> c.uppercase() }) }
+                prod.barcode?.takeIf { esBarcodeValido(it) }?.let { add("Código de barras" to it) }
+                prod.updatedAt?.takeUnless { it.isBlank() }
+                    ?.let { add("Actualizado" to formatearFechaIso(it)) }
+            }
+            if (filas.isNotEmpty()) {
+                Spacer(Modifier.height(Espacio.l))
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    // Datos reales solamente (DESIGN.md §3.9): presentación vacía
-                    // ("item") y marca redundante con categoría no se pintan.
-                    prod.marca?.takeUnless { it.isBlank() || it == prod.categoria }
-                        ?.let { FilaDato("Marca", it) }
-                    prod.presentacion?.takeUnless { it.isBlank() || it.equals("item", ignoreCase = true) }
-                        ?.let { FilaDato("Presentación", it) }
-                    prod.categoria?.takeUnless { it.isBlank() }
-                        ?.let { FilaDato("Categoría", it.replaceFirstChar { c -> c.uppercase() }) }
-                    prod.barcode?.takeIf { esBarcodeValido(it) }?.let { FilaDato("Código de barras", it) }
-                    prod.updatedAt?.takeUnless { it.isBlank() }
-                        ?.let { FilaDato("Actualizado", formatearFechaIso(it)) }
+                    Column(
+                        Modifier.fillMaxWidth().padding(Espacio.l),
+                        verticalArrangement = Arrangement.spacedBy(Espacio.s),
+                    ) {
+                        filas.forEach { (etiqueta, valor) -> FilaDato(etiqueta, valor) }
+                    }
                 }
             }
 
